@@ -26,12 +26,23 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ScoreboardIcon from '@mui/icons-material/Scoreboard';
 import EventIcon from '@mui/icons-material/Event';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import LineupViewerDialog from '../components/LineupViewerDialog.jsx';
 
 const statusColor = { SCHEDULED: 'default', LIVE: 'error', FINISHED: 'primary' };
 
-const emptyForm = { homeTeamId: '', awayTeamId: '', venue: '', scheduledAt: '' };
+const emptyForm = {
+  homeKind: 'team', // 'team' | 'external'
+  homeTeamId: '',
+  homeTeamLabel: '',
+  awayKind: 'external', // default: we host an outside opponent
+  awayTeamId: '',
+  awayTeamLabel: '',
+  venue: '',
+  scheduledAt: '',
+};
 
 // Format an ISO date into a value the datetime-local input understands.
 const toLocalInput = (iso) => {
@@ -60,6 +71,9 @@ export default function Matches() {
   const [scoreOpen, setScoreOpen] = useState(false);
   const [scoreMatch, setScoreMatch] = useState(null);
   const [score, setScore] = useState({ homeScore: 0, awayScore: 0 });
+
+  // Read-only lineup viewer dialog.
+  const [lineupMatch, setLineupMatch] = useState(null);
 
   const load = () => api.get('/matches').then((res) => setMatches(res.data));
   useEffect(() => {
@@ -92,6 +106,17 @@ export default function Matches() {
   ];
   const currentList = tabsData[tab].list;
 
+  // A fixture is valid when both sides are filled, at least one side is an
+  // internal team, and a kick-off time is set. Rescheduling only needs a time.
+  const sideFilled = (kind, id, label) =>
+    kind === 'team' ? Boolean(id) : Boolean(label.trim());
+  const canSubmitFixture = editId
+    ? Boolean(form.scheduledAt)
+    : sideFilled(form.homeKind, form.homeTeamId, form.homeTeamLabel) &&
+      sideFilled(form.awayKind, form.awayTeamId, form.awayTeamLabel) &&
+      (form.homeKind === 'team' || form.awayKind === 'team') &&
+      Boolean(form.scheduledAt);
+
   // --- create / reschedule ---
   const openCreate = () => {
     setEditId(null);
@@ -102,8 +127,12 @@ export default function Matches() {
   const openReschedule = (m) => {
     setEditId(m.id);
     setForm({
-      homeTeamId: m.homeTeamId,
-      awayTeamId: m.awayTeamId,
+      homeKind: m.homeIsExternal ? 'external' : 'team',
+      homeTeamId: m.homeTeamId || '',
+      homeTeamLabel: m.homeIsExternal ? m.homeTeamName : '',
+      awayKind: m.awayIsExternal ? 'external' : 'team',
+      awayTeamId: m.awayTeamId || '',
+      awayTeamLabel: m.awayIsExternal ? m.awayTeamName : '',
       venue: m.venue || '',
       scheduledAt: toLocalInput(m.scheduledAt),
     });
@@ -115,12 +144,12 @@ export default function Matches() {
     if (editId) {
       await api.patch(`/matches/${editId}`, { venue: form.venue, scheduledAt });
     } else {
-      await api.post('/matches', {
-        homeTeamId: form.homeTeamId,
-        awayTeamId: form.awayTeamId,
-        venue: form.venue,
-        scheduledAt,
-      });
+      const payload = { venue: form.venue, scheduledAt };
+      if (form.homeKind === 'team') payload.homeTeamId = form.homeTeamId;
+      else payload.homeTeamLabel = form.homeTeamLabel;
+      if (form.awayKind === 'team') payload.awayTeamId = form.awayTeamId;
+      else payload.awayTeamLabel = form.awayTeamLabel;
+      await api.post('/matches', payload);
     }
     setOpen(false);
     setForm(emptyForm);
@@ -239,6 +268,16 @@ export default function Matches() {
                 {isResult ? 'Edit Score' : 'Record Score'}
               </Button>
             )}
+            {(!m.homeIsExternal || !m.awayIsExternal) && (
+              <Button
+                size="small"
+                variant="text"
+                startIcon={<FormatListNumberedIcon />}
+                onClick={() => setLineupMatch(m)}
+              >
+                Lineup
+              </Button>
+            )}
             <Box sx={{ flex: 1 }} />
             {canManage && m.status === 'SCHEDULED' && (
               <IconButton size="small" onClick={() => openReschedule(m)} title="Reschedule">
@@ -324,36 +363,91 @@ export default function Matches() {
         <DialogTitle>{editId ? 'Reschedule Fixture' : 'New Fixture'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={1}>
+            {!editId && (
+              <Typography variant="caption" color="text.secondary">
+                Pick your team for at least one side. The opponent can be one of
+                your teams or an external club entered by name.
+              </Typography>
+            )}
+
+            {/* Home side */}
             <TextField
               select
-              label="Home team"
-              value={form.homeTeamId}
-              onChange={(e) => setForm({ ...form, homeTeamId: e.target.value })}
+              label="Home side"
+              value={form.homeKind}
+              onChange={(e) => setForm({ ...form, homeKind: e.target.value })}
               fullWidth
               disabled={Boolean(editId)}
             >
-              {teams.map((t) => (
-                <MenuItem key={t.id} value={t.id}>
-                  {t.name}
-                </MenuItem>
-              ))}
+              <MenuItem value="team">Our team</MenuItem>
+              <MenuItem value="external">External club</MenuItem>
             </TextField>
-            <TextField
-              select
-              label="Away team"
-              value={form.awayTeamId}
-              onChange={(e) => setForm({ ...form, awayTeamId: e.target.value })}
-              fullWidth
-              disabled={Boolean(editId)}
-            >
-              {teams
-                .filter((t) => t.id !== form.homeTeamId)
-                .map((t) => (
+            {form.homeKind === 'team' ? (
+              <TextField
+                select
+                label="Home team"
+                value={form.homeTeamId}
+                onChange={(e) => setForm({ ...form, homeTeamId: e.target.value })}
+                fullWidth
+                disabled={Boolean(editId)}
+              >
+                {teams.map((t) => (
                   <MenuItem key={t.id} value={t.id}>
                     {t.name}
                   </MenuItem>
                 ))}
+              </TextField>
+            ) : (
+              <TextField
+                label="Home club name"
+                value={form.homeTeamLabel}
+                onChange={(e) => setForm({ ...form, homeTeamLabel: e.target.value })}
+                fullWidth
+                disabled={Boolean(editId)}
+              />
+            )}
+
+            <Divider>vs</Divider>
+
+            {/* Away side */}
+            <TextField
+              select
+              label="Away side"
+              value={form.awayKind}
+              onChange={(e) => setForm({ ...form, awayKind: e.target.value })}
+              fullWidth
+              disabled={Boolean(editId)}
+            >
+              <MenuItem value="team">Our team</MenuItem>
+              <MenuItem value="external">External club</MenuItem>
             </TextField>
+            {form.awayKind === 'team' ? (
+              <TextField
+                select
+                label="Away team"
+                value={form.awayTeamId}
+                onChange={(e) => setForm({ ...form, awayTeamId: e.target.value })}
+                fullWidth
+                disabled={Boolean(editId)}
+              >
+                {teams
+                  .filter((t) => t.id !== form.homeTeamId)
+                  .map((t) => (
+                    <MenuItem key={t.id} value={t.id}>
+                      {t.name}
+                    </MenuItem>
+                  ))}
+              </TextField>
+            ) : (
+              <TextField
+                label="Away club name"
+                value={form.awayTeamLabel}
+                onChange={(e) => setForm({ ...form, awayTeamLabel: e.target.value })}
+                fullWidth
+                disabled={Boolean(editId)}
+              />
+            )}
+
             <TextField
               label="Venue"
               value={form.venue}
@@ -374,10 +468,7 @@ export default function Matches() {
           <Button variant="text" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!form.homeTeamId || !form.awayTeamId || !form.scheduledAt}
-          >
+          <Button onClick={handleSave} disabled={!canSubmitFixture}>
             {editId ? 'Save' : 'Create'}
           </Button>
         </DialogActions>
@@ -429,6 +520,13 @@ export default function Matches() {
           <Button onClick={handleSaveScore}>Save Result</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Read-only lineup viewer */}
+      <LineupViewerDialog
+        open={Boolean(lineupMatch)}
+        match={lineupMatch}
+        onClose={() => setLineupMatch(null)}
+      />
     </Box>
   );
 }

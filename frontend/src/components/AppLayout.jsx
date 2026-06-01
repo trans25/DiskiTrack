@@ -24,10 +24,14 @@ import PersonIcon from '@mui/icons-material/Person';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import HistoryIcon from '@mui/icons-material/History';
 import InsightsIcon from '@mui/icons-material/Insights';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import CampaignIcon from '@mui/icons-material/Campaign';
 import BadgeIcon from '@mui/icons-material/Badge';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { Badge } from '@mui/material';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useAnnouncements } from '../context/AnnouncementsContext.jsx';
 
 const drawerWidth = 240;
 
@@ -36,8 +40,10 @@ const navItems = [
   { label: 'Teams', icon: <GroupsIcon />, path: '/teams' },
   { label: 'Players', icon: <PersonIcon />, path: '/players', roles: ['CLUB_ADMIN', 'COACH', 'ANALYST', 'GUARDIAN'] },
   { label: 'Matches', icon: <SportsSoccerIcon />, path: '/matches' },
+  { label: 'Training', icon: <FitnessCenterIcon />, path: '/training', roles: ['CLUB_ADMIN', 'COACH'] },
   { label: 'Match History', icon: <HistoryIcon />, path: '/history' },
-  { label: 'Analytics', icon: <InsightsIcon />, path: '/analytics' },
+  { label: 'Analytics', icon: <InsightsIcon />, path: '/analytics', roles: ['SYSTEM_ADMIN', 'CLUB_ADMIN', 'COACH', 'ANALYST'] },
+  { label: 'Announcements', icon: <CampaignIcon />, path: '/announcements' },
   { label: 'Members', icon: <BadgeIcon />, path: '/users', roles: ['CLUB_ADMIN', 'SYSTEM_ADMIN'] },
 ];
 
@@ -48,6 +54,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { unreadCount } = useAnnouncements();
 
   const handleNav = (path) => {
     navigate(path);
@@ -71,7 +78,15 @@ export default function AppLayout() {
             selected={location.pathname === item.path}
             onClick={() => handleNav(item.path)}
           >
-            <ListItemIcon sx={{ color: 'primary.main' }}>{item.icon}</ListItemIcon>
+            <ListItemIcon sx={{ color: 'primary.main' }}>
+              {item.path === '/announcements' ? (
+                <Badge badgeContent={unreadCount} color="error">
+                  {item.icon}
+                </Badge>
+              ) : (
+                item.icon
+              )}
+            </ListItemIcon>
             <ListItemText primary={item.label} />
           </ListItemButton>
         ))}

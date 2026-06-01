@@ -1,13 +1,29 @@
 import { useEffect, useState } from 'react';
-import { Grid, Card, CardContent, CardActionArea, Typography, Box, Stack } from '@mui/material';
+import {
+  Grid,
+  Card,
+  CardContent,
+  CardActionArea,
+  Typography,
+  Box,
+  Stack,
+  Alert,
+  AlertTitle,
+  Chip,
+  Button,
+} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PersonIcon from '@mui/icons-material/Person';
 import BadgeIcon from '@mui/icons-material/Badge';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import LiveTvIcon from '@mui/icons-material/LiveTv';
+import CampaignIcon from '@mui/icons-material/Campaign';
+import PushPinIcon from '@mui/icons-material/PushPin';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useAnnouncements } from '../context/AnnouncementsContext.jsx';
+import CoachDashboard from './CoachDashboard.jsx';
 
 const StatCard = ({ icon, label, value, hint, onClick }) => {
   const content = (
@@ -74,10 +90,16 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const isSystemAdmin = user?.role === 'SYSTEM_ADMIN';
   const [stats, setStats] = useState(null);
+  const { items: announcements } = useAnnouncements();
+  const pinned = announcements.filter((a) => a.isPinned).slice(0, 3);
 
   useEffect(() => {
     api.get('/stats/dashboard').then((res) => setStats(res.data));
   }, []);
+
+  if (user?.role === 'COACH') {
+    return <CoachDashboard firstName={user?.firstName} />;
+  }
 
   const u = stats?.users || {};
   const usersHint = `${u.clubAdmins || 0} admins · ${u.coaches || 0} coaches · ${u.analysts || 0} analysts`;
@@ -92,6 +114,44 @@ export default function Dashboard() {
           ? 'Platform overview across all clubs.'
           : 'Here is what is happening at your club today.'}
       </Typography>
+
+      {pinned.length > 0 && (
+        <Stack spacing={1.5} mb={3}>
+          {pinned.map((a) => (
+            <Alert
+              key={a.id}
+              severity="info"
+              icon={<CampaignIcon />}
+              sx={{ alignItems: 'flex-start', '& .MuiAlert-message': { width: '100%' } }}
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => navigate('/announcements')}
+                >
+                  View all
+                </Button>
+              }
+            >
+              <AlertTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Chip
+                  size="small"
+                  color="primary"
+                  icon={<PushPinIcon />}
+                  label="Pinned"
+                />
+                {a.title}
+              </AlertTitle>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {a.body}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {a.authorName}
+              </Typography>
+            </Alert>
+          ))}
+        </Stack>
+      )}
 
       <Grid container spacing={2}>
         {isSystemAdmin && (
@@ -137,6 +197,14 @@ export default function Dashboard() {
             label="Players"
             value={stats?.players ?? '—'}
             onClick={() => navigate('/players')}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            icon={<CampaignIcon fontSize="large" />}
+            label="Announcements"
+            value={stats?.announcements ?? '—'}
+            onClick={() => navigate('/announcements')}
           />
         </Grid>
       </Grid>

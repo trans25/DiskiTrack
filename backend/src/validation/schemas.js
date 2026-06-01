@@ -62,10 +62,13 @@ export const createPlayerSchema = z.object({
 });
 
 export const createMatchSchema = z.object({
-  homeTeamId: z.string().uuid(),
-  awayTeamId: z.string().uuid(),
+  homeTeamId: z.string().uuid().optional(),
+  awayTeamId: z.string().uuid().optional(),
+  homeTeamLabel: z.string().min(1).max(200).optional(),
+  awayTeamLabel: z.string().min(1).max(200).optional(),
   venue: z.string().max(200).optional(),
   scheduledAt: z.string(),
+  videoUrl: z.string().url().max(1000).optional().or(z.literal('')),
 });
 
 export const updateMatchStatusSchema = z.object({
@@ -77,6 +80,21 @@ export const updateMatchSchema = z.object({
   scheduledAt: z.string().optional(),
   homeScore: z.coerce.number().int().min(0).max(99).optional(),
   awayScore: z.coerce.number().int().min(0).max(99).optional(),
+  videoUrl: z.string().url().max(1000).nullable().optional().or(z.literal('')),
+});
+
+export const createAnnouncementSchema = z.object({
+  title: z.string().min(2).max(200),
+  body: z.string().min(1).max(5000),
+  isPinned: z.boolean().optional(),
+  teamId: z.string().uuid().nullable().optional(),
+});
+
+export const updateAnnouncementSchema = z.object({
+  title: z.string().min(2).max(200).optional(),
+  body: z.string().min(1).max(5000).optional(),
+  isPinned: z.boolean().optional(),
+  teamId: z.string().uuid().nullable().optional(),
 });
 
 export const createMatchEventSchema = z.object({
@@ -85,9 +103,56 @@ export const createMatchEventSchema = z.object({
   playerId: z.string().uuid().optional(),
   relatedPlayerId: z.string().uuid().optional(),
   minute: z.coerce.number().int().min(0).max(130).optional(),
+  videoSeconds: z.coerce.number().int().min(0).max(86400).optional(),
   notes: z.string().max(500).optional(),
 });
 
 export const assignGuardianPlayersSchema = z.object({
   playerIds: z.array(z.string().uuid()).min(1),
+});
+
+export const saveLineupSchema = z.object({
+  teamId: z.string().uuid(),
+  formation: z.string().max(20).optional(),
+  players: z
+    .array(
+      z.object({
+        playerId: z.string().uuid(),
+        isStarting: z.boolean().optional(),
+        jerseyNumber: z.coerce.number().int().min(0).max(99).nullable().optional(),
+        position: z.string().max(40).nullable().optional(),
+      })
+    )
+    .max(40),
+});
+
+export const attendanceStatuses = ['PRESENT', 'ABSENT', 'EXCUSED', 'INJURED', 'UNKNOWN'];
+
+export const createTrainingSessionSchema = z.object({
+  teamId: z.string().uuid(),
+  title: z.string().min(2).max(200),
+  location: z.string().max(200).optional(),
+  focus: z.string().max(2000).optional(),
+  scheduledAt: z.string().min(1),
+  durationMin: z.coerce.number().int().min(0).max(600).optional(),
+});
+
+export const updateTrainingSessionSchema = z.object({
+  title: z.string().min(2).max(200).optional(),
+  location: z.string().max(200).optional(),
+  focus: z.string().max(2000).optional(),
+  scheduledAt: z.string().min(1).optional(),
+  durationMin: z.coerce.number().int().min(0).max(600).optional(),
+});
+
+export const saveAttendanceSchema = z.object({
+  entries: z
+    .array(
+      z.object({
+        playerId: z.string().uuid(),
+        status: z.enum(attendanceStatuses).optional(),
+        note: z.string().max(200).nullable().optional(),
+      })
+    )
+    .max(60),
 });

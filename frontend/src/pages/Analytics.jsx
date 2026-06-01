@@ -1,65 +1,29 @@
-import { useEffect, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Tabs,
-  Tab,
-} from '@mui/material';
-import { api } from '../api/client.js';
+import { Box, Typography } from '@mui/material';
+import { useAuth } from '../context/AuthContext.jsx';
+import ClubAnalytics from '../components/ClubAnalytics.jsx';
+import PlatformAnalytics from '../components/PlatformAnalytics.jsx';
 
+/**
+ * Role-aware analytics hub.
+ * - SYSTEM_ADMIN -> cross-tenant platform analytics
+ * - CLUB_ADMIN / COACH / ANALYST -> club-wide analytics with clickable charts
+ */
 export default function Analytics() {
-  const [tab, setTab] = useState(0);
-  const [scorers, setScorers] = useState([]);
-
-  useEffect(() => {
-    api.get('/analytics/top-scorers?limit=15').then((res) => setScorers(res.data));
-  }, []);
+  const { user } = useAuth();
+  const isSystemAdmin = user?.role === 'SYSTEM_ADMIN';
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} mb={2}>
+      <Typography variant="h5" fontWeight={700} mb={0.5}>
         Analytics
       </Typography>
+      <Typography variant="body2" color="text.secondary" mb={2}>
+        {isSystemAdmin
+          ? 'Platform performance across every club. Click a club bar for details.'
+          : 'Your club at a glance. Click any chart to drill into players and teams.'}
+      </Typography>
 
-      <Tabs value={tab} onChange={(_e, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab label="Top Scorers" />
-      </Tabs>
-
-      {tab === 0 && (
-        <Card>
-          <CardContent sx={{ overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>#</TableCell>
-                  <TableCell>Player</TableCell>
-                  <TableCell align="right">Goals</TableCell>
-                  <TableCell align="right">Assists</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {scorers.map((p, i) => (
-                  <TableRow key={p.id} hover>
-                    <TableCell>{i + 1}</TableCell>
-                    <TableCell>
-                      {p.first_name} {p.last_name}
-                    </TableCell>
-                    <TableCell align="right">{p.goals}</TableCell>
-                    <TableCell align="right">{p.assists}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      {isSystemAdmin ? <PlatformAnalytics /> : <ClubAnalytics />}
     </Box>
   );
 }

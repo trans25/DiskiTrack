@@ -8,6 +8,9 @@ let io = null;
 /** Room name for a given match. */
 export const matchRoom = (matchId) => `match:${matchId}`;
 
+/** Room name for a club tenant (used for club-wide pushes like notices). */
+export const tenantRoom = (tenantId) => `tenant:${tenantId}`;
+
 /**
  * Initialize Socket.io on the given HTTP server.
  * @param {import('http').Server} httpServer
@@ -36,6 +39,11 @@ export const initSocket = (httpServer) => {
   });
 
   io.on('connection', (socket) => {
+    // Auto-join the caller's club room so they receive club-wide pushes
+    // (e.g. announcements) without an explicit subscribe step.
+    const { tenantId } = socket.data.user || {};
+    if (tenantId) socket.join(tenantRoom(tenantId));
+
     // Clients join/leave specific match rooms to receive live updates.
     socket.on('match:join', (matchId) => {
       if (matchId) socket.join(matchRoom(matchId));
@@ -58,6 +66,17 @@ export const initSocket = (httpServer) => {
 export const emitToMatch = (matchId, event, payload) => {
   if (!io) return;
   io.to(matchRoom(matchId)).emit(event, payload);
+};
+
+/**
+ * Emit an event to everyone connected for a given club (tenant).
+ * @param {string} tenantId
+ * @param {string} event
+ * @param {unknown} payload
+ */
+export const emitToTenant = (tenantId, event, payload) => {
+  if (!io || !tenantId) return;
+  io.to(tenantRoom(tenantId)).emit(event, payload);
 };
 
 export const getIo = () => io;

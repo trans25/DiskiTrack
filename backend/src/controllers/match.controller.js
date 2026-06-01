@@ -10,6 +10,8 @@ const toMatch = (r) => ({
   awayTeamId: r.away_team_id,
   homeTeamName: r.home_team_name,
   awayTeamName: r.away_team_name,
+  homeIsExternal: r.home_team_id == null,
+  awayIsExternal: r.away_team_id == null,
   venue: r.venue,
   scheduledAt: r.scheduled_at,
   status: r.status,
@@ -17,15 +19,20 @@ const toMatch = (r) => ({
   awayScore: r.away_score,
   kickoffAt: r.kickoff_at,
   finishedAt: r.finished_at,
+  videoUrl: r.video_url,
+  homeFormation: r.home_formation,
+  awayFormation: r.away_formation,
 });
 
+// Resolve each side's display name from the linked team, falling back to the
+// free-text label used for external (non-system) opponents.
 const SELECT_WITH_TEAMS = `
   SELECT m.*,
-         ht.name AS home_team_name,
-         at.name AS away_team_name
+         COALESCE(ht.name, m.home_team_label) AS home_team_name,
+         COALESCE(at.name, m.away_team_label) AS away_team_name
     FROM matches m
-    JOIN teams ht ON ht.id = m.home_team_id
-    JOIN teams at ON at.id = m.away_team_id
+    LEFT JOIN teams ht ON ht.id = m.home_team_id
+    LEFT JOIN teams at ON at.id = m.away_team_id
 `;
 
 export const listMatches = asyncHandler(async (req, res) => {
@@ -52,14 +59,45 @@ export const getMatch = asyncHandler(async (req, res) => {
 });
 
 export const createMatch = asyncHandler(async (req, res) => {
-  const { homeTeamId, awayTeamId, venue, scheduledAt } = req.body;
-  if (homeTeamId === awayTeamId) {
+  const {
+    homeTeamId,
+    awayTeamId,
+    homeTeamLabel,
+    awayTeamLabel,
+    venue,
+    scheduledAt,
+    videoUrl,
+  } = req.body;
+
+  // At least one side must be one of this club's teams.
+  if (!homeTeamId && !awayTeamId) {
+    throw ApiError.badRequest('At least one side must be one of your teams');
+  }
+  if (homeTeamId && awayTeamId && homeTeamId === awayTeamId) {
     throw ApiError.badRequest('Home and away teams must differ');
   }
+  // Each side needs either an internal team or an external label.
+  if (!homeTeamId && !homeTeamLabel) {
+    throw ApiError.badRequest('Provide a home team or an opponent name');
+  }
+  if (!awayTeamId && !awayTeamLabel) {
+    throw ApiError.badRequest('Provide an away team or an opponent name');
+  }
+
   const { rows } = await query(
-    `INSERT INTO matches (tenant_id, home_team_id, away_team_id, venue, scheduled_at)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [req.tenantId, homeTeamId, awayTeamId, venue ?? null, scheduledAt]
+    `INSERT INTO matches
+       (tenant_id, home_team_id, away_team_id, home_team_label, away_team_label, venue, scheduled_at, video_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+    [
+      req.tenantId,
+      homeTeamId ?? null,
+      awayTeamId ?? null,
+      homeTeamId ? null : homeTeamLabel,
+      awayTeamId ? null : awayTeamLabel,
+      venue ?? null,
+      scheduledAt,
+      videoUrl || null,
+    ]
   );
   const { rows: full } = await query(
     `${SELECT_WITH_TEAMS} WHERE m.id = $1`,
@@ -73,7 +111,7 @@ export const updateMatchStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
   const { rows } = await query(
     `UPDATE matches
-        SET status = $3,
+        SET status = $3::match_status,
             kickoff_at = CASE WHEN $3 = 'LIVE'   AND kickoff_at IS NULL THEN now() ELSE kickoff_at END,
             finished_at = CASE WHEN $3 = 'FINISHED' THEN now() ELSE finished_at END
       WHERE id = $1 AND tenant_id = $2
@@ -93,13 +131,14 @@ export const updateMatchStatus = asyncHandler(async (req, res) => {
 
 // Edit fixture details (reschedule, venue) and/or record the final score.
 export const updateMatch = asyncHandler(async (req, res) => {
-  const { venue, scheduledAt, homeScore, awayScore } = req.body;
+  const { venue, scheduledAt, homeScore, awayScore, videoUrl } = req.body;
   const { rows } = await query(
     `UPDATE matches
         SET venue = COALESCE($3, venue),
             scheduled_at = COALESCE($4, scheduled_at),
             home_score = COALESCE($5, home_score),
-            away_score = COALESCE($6, away_score)
+            away_score = COALESCE($6, away_score),
+            video_url = COALESCE($7, video_url)
       WHERE id = $1 AND tenant_id = $2
       RETURNING id`,
     [
@@ -109,6 +148,7 @@ export const updateMatch = asyncHandler(async (req, res) => {
       scheduledAt ?? null,
       homeScore ?? null,
       awayScore ?? null,
+      videoUrl === '' ? null : (videoUrl ?? null),
     ]
   );
   if (!rows[0]) throw ApiError.notFound('Match not found');
@@ -125,4 +165,23 @@ export const deleteMatch = asyncHandler(async (req, res) => {
   );
   if (!rowCount) throw ApiError.notFound('Match not found');
   res.status(204).send();
+});
+
+// Store an uploaded match video file and point the match at it. The file is
+// saved to disk by the upload middleware; here we persist its served URL.
+export const uploadMatchVideo = asyncHandler(async (req, res) => {
+  if (!req.file) throw ApiError.badRequest('No video file was uploaded');
+
+  // Served statically from /uploads (see app.js).
+  const videoUrl = `/uploads/videos/${req.file.filename}`;
+  const { rows } = await query(
+    `UPDATE matches SET video_url = $3 WHERE id = $1 AND tenant_id = $2 RETURNING id`,
+    [req.params.id, req.tenantId, videoUrl]
+  );
+  if (!rows[0]) throw ApiError.notFound('Match not found');
+
+  const { rows: full } = await query(`${SELECT_WITH_TEAMS} WHERE m.id = $1`, [
+    rows[0].id,
+  ]);
+  res.json(toMatch(full[0]));
 });

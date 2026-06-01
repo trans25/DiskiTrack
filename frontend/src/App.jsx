@@ -12,6 +12,8 @@ import MatchHistory from './pages/MatchHistory.jsx';
 import PlayerProfile from './pages/PlayerProfile.jsx';
 import Analytics from './pages/Analytics.jsx';
 import ClubUsers from './pages/ClubUsers.jsx';
+import Announcements from './pages/Announcements.jsx';
+import Training from './pages/Training.jsx';
 
 export default function App() {
   const { loading } = useAuth();
@@ -35,7 +37,9 @@ export default function App() {
         <Route path="/matches" element={<Matches />} />
         <Route path="/matches/:id/live" element={<LiveMatch />} />
         <Route path="/history" element={<MatchHistory />} />
+        <Route path="/training" element={<Training />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/announcements" element={<Announcements />} />
         <Route path="/users" element={<ClubUsers />} />
       </Route>
 

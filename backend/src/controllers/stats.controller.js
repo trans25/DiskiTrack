@@ -12,7 +12,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 export const dashboardStats = asyncHandler(async (req, res) => {
   const t = req.tenantId; // null for cross-tenant SYSTEM_ADMIN
 
-  const [clubs, teams, players, live, users] = await Promise.all([
+  const [clubs, teams, players, live, users, announcements] = await Promise.all([
     // Total clubs only matters for the platform-wide (SYSTEM_ADMIN) view.
     query(`SELECT COUNT(*)::int AS c FROM clubs`),
     query(
@@ -36,6 +36,10 @@ export const dashboardStats = asyncHandler(async (req, res) => {
         GROUP BY role`,
       [t]
     ),
+    query(
+      `SELECT COUNT(*)::int AS c FROM announcements WHERE ($1::uuid IS NULL OR tenant_id = $1)`,
+      [t]
+    ),
   ]);
 
   const byRole = users.rows.reduce((acc, r) => {
@@ -52,6 +56,7 @@ export const dashboardStats = asyncHandler(async (req, res) => {
     teams: teams.rows[0].c,
     players: players.rows[0].c,
     liveMatches: live.rows[0].c,
+    announcements: announcements.rows[0].c,
     users: {
       total: staffUsers,
       clubAdmins: byRole.CLUB_ADMIN || 0,

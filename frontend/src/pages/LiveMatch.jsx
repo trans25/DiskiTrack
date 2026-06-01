@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box,
@@ -10,6 +10,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
+  TextField,
   List,
   ListItemButton,
   ListItemText,
@@ -18,6 +20,7 @@ import {
   Divider,
   ToggleButtonGroup,
   ToggleButton,
+  LinearProgress,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -26,8 +29,22 @@ import StyleIcon from '@mui/icons-material/Style';
 import SportsIcon from '@mui/icons-material/Sports';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import FlagIcon from '@mui/icons-material/Flag';
+import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import { api } from '../api/client.js';
 import { getSocket, connectSocket } from '../api/socket.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import MatchVideoPlayer from '../components/MatchVideoPlayer.jsx';
+import LineupView from '../components/LineupView.jsx';
+import LineupDialog from '../components/LineupDialog.jsx';
+
+// Format seconds as m:ss for the video timeline.
+const fmtClock = (s) => {
+  if (s == null) return '';
+  const m = Math.floor(s / 60);
+  const sec = String(s % 60).padStart(2, '0');
+  return `${m}:${sec}`;
+};
 
 // Big, touch-friendly event buttons for a coach on the field.
 const EVENT_BUTTONS = [
@@ -43,6 +60,8 @@ const EVENT_BUTTONS = [
 
 export default function LiveMatch() {
   const { id: matchId } = useParams();
+  const { user } = useAuth();
+  const canEditLineup = user?.role === 'COACH';
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -53,26 +72,45 @@ export default function LiveMatch() {
   const [side, setSide] = useState('home'); // which team the event is for
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingType, setPendingType] = useState(null);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [videoInput, setVideoInput] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
+  const [lineup, setLineup] = useState(null);
+  const [lineupOpen, setLineupOpen] = useState(false);
+  const playerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // --- Initial load ---
   const loadData = useCallback(async () => {
-    const [m, ev] = await Promise.all([
+    const [m, ev, lu] = await Promise.all([
       api.get(`/matches/${matchId}`),
       api.get(`/matches/${matchId}/events`),
+      api.get(`/matches/${matchId}/lineup`),
     ]);
     setMatch(m.data);
     setEvents(ev.data);
+    setLineup(lu.data);
     setScoreboard({ homeScore: m.data.homeScore, awayScore: m.data.awayScore });
+    setVideoInput(m.data.videoUrl || '');
+    // Default the tagging side to whichever side is our internal team.
+    if (m.data.homeIsExternal && !m.data.awayIsExternal) setSide('away');
+    else setSide('home');
   }, [matchId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Load roster for the currently selected side.
+  // Load roster for the currently selected side (external opponents have no roster).
   useEffect(() => {
     if (!match) return;
+    const isExternal = side === 'home' ? match.homeIsExternal : match.awayIsExternal;
     const teamId = side === 'home' ? match.homeTeamId : match.awayTeamId;
+    if (isExternal || !teamId) {
+      setPlayers([]);
+      return;
+    }
     api.get(`/players?teamId=${teamId}`).then((res) => setPlayers(res.data));
   }, [match, side]);
 
@@ -104,18 +142,27 @@ export default function LiveMatch() {
   }, [matchId]);
 
   const handleEventClick = (type) => {
+    // CORNER is a team-level event with no specific player — log it directly.
+    if (type === 'CORNER') {
+      submitEvent(null, type);
+      return;
+    }
     setPendingType(type);
     setPickerOpen(true);
   };
 
-  const submitEvent = async (player) => {
+  const submitEvent = async (player, typeOverride) => {
     setPickerOpen(false);
+    const eventType = typeOverride ?? pendingType;
     const teamId = side === 'home' ? match.homeTeamId : match.awayTeamId;
+    // Stamp the current video position so the event can be replayed later.
+    const videoSeconds = match.videoUrl ? playerRef.current?.getCurrentTime?.() : undefined;
     try {
       await api.post(`/matches/${matchId}/events`, {
         teamId,
-        eventType: pendingType,
+        eventType,
         playerId: player?.id,
+        videoSeconds,
       });
       // No optimistic insert needed — the socket broadcast updates state.
     } catch (err) {
@@ -131,7 +178,66 @@ export default function LiveMatch() {
     setMatch(data);
   };
 
+  const saveVideo = async () => {
+    try {
+      const { data } = await api.patch(`/matches/${matchId}`, {
+        videoUrl: videoInput.trim(),
+      });
+      setMatch(data);
+      setVideoOpen(false);
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err.response?.data?.error || 'Could not save the video link');
+    }
+  };
+
+  const uploadFile = async (file) => {
+    if (!file) return;
+    const form = new FormData();
+    form.append('video', file);
+    setUploading(true);
+    setUploadPct(0);
+    try {
+      const { data } = await api.post(`/matches/${matchId}/video`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => {
+          if (e.total) setUploadPct(Math.round((e.loaded / e.total) * 100));
+        },
+      });
+      setMatch(data);
+      setVideoOpen(false);
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err.response?.data?.error || 'Could not upload the video');
+    } finally {
+      setUploading(false);
+      setUploadPct(0);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const seekToEvent = (seconds) => {
+    if (seconds == null) return;
+    playerRef.current?.seekTo?.(seconds);
+  };
+
   if (!match) return <Typography>Loading match…</Typography>;
+
+  // Tag live, or review-tag a finished match from its video footage.
+  const canTag = match.status === 'LIVE' || (match.status === 'FINISHED' && !!match.videoUrl);
+
+  // Lineup is shown for whichever side is our internal team.
+  const lineupTeamId = !match.homeIsExternal
+    ? match.homeTeamId
+    : !match.awayIsExternal
+      ? match.awayTeamId
+      : null;
+  const lineupTeamName = lineupTeamId === match.homeTeamId ? match.homeTeamName : match.awayTeamName;
+  const lineupFormation =
+    (lineupTeamId === match.homeTeamId ? match.homeFormation : match.awayFormation) || '4-4-2';
+  const myLineup = (lineup?.lineup || []).filter((l) => l.teamId === lineupTeamId);
+  const lineupStarters = myLineup.filter((l) => l.isStarting);
+  const lineupSubs = myLineup.filter((l) => !l.isStarting);
 
   return (
     <Box>
@@ -177,6 +283,71 @@ export default function LiveMatch() {
       </Card>
 
       <Grid container spacing={2}>
+        {/* Video-assisted tagging panel */}
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="h6">Match Video</Typography>
+                <Button
+                  size="small"
+                  startIcon={<OndemandVideoIcon />}
+                  onClick={() => {
+                    setVideoInput(match.videoUrl?.startsWith('/uploads') ? '' : match.videoUrl || '');
+                    setVideoOpen(true);
+                  }}
+                >
+                  {match.videoUrl ? 'Change video' : 'Add video'}
+                </Button>
+              </Stack>
+              <MatchVideoPlayer ref={playerRef} src={match.videoUrl} />
+              {match.videoUrl && (
+                <Typography variant="caption" color="text.secondary" mt={1} display="block">
+                  Tag an event while the video plays — the current timestamp is saved so you
+                  can jump back to the moment from the timeline.
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Lineup / formation */}
+        <Grid item xs={12} md={5}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="h6">Lineup</Typography>
+                {canEditLineup && (
+                  <Button
+                    size="small"
+                    startIcon={<FormatListNumberedIcon />}
+                    onClick={() => setLineupOpen(true)}
+                    disabled={!lineupTeamId}
+                  >
+                    {lineupStarters.length ? 'Edit lineup' : 'Set lineup'}
+                  </Button>
+                )}
+              </Stack>
+              {lineupStarters.length ? (
+                <LineupView
+                  formation={lineupFormation}
+                  teamName={lineupTeamName}
+                  starters={lineupStarters}
+                  subs={lineupSubs}
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {!lineupTeamId
+                    ? 'Lineups are only available for your internal team.'
+                    : canEditLineup
+                      ? 'No lineup set yet. Choose a formation and starting XI.'
+                      : 'The coach has not set the lineup for this match yet.'}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* Event controls */}
         <Grid item xs={12} md={7}>
           <Card>
@@ -189,8 +360,12 @@ export default function LiveMatch() {
                   value={side}
                   onChange={(_e, v) => v && setSide(v)}
                 >
-                  <ToggleButton value="home">{match.homeTeamName}</ToggleButton>
-                  <ToggleButton value="away">{match.awayTeamName}</ToggleButton>
+                  <ToggleButton value="home" disabled={match.homeIsExternal}>
+                    {match.homeTeamName}
+                  </ToggleButton>
+                  <ToggleButton value="away" disabled={match.awayIsExternal}>
+                    {match.awayTeamName}
+                  </ToggleButton>
                 </ToggleButtonGroup>
               </Stack>
 
@@ -203,7 +378,7 @@ export default function LiveMatch() {
                       color={btn.color}
                       variant={btn.color === 'inherit' ? 'outlined' : 'contained'}
                       startIcon={btn.icon}
-                      disabled={match.status !== 'LIVE'}
+                      disabled={!canTag}
                       onClick={() => handleEventClick(btn.type)}
                       sx={{ height: 72 }}
                     >
@@ -212,7 +387,7 @@ export default function LiveMatch() {
                   </Grid>
                 ))}
               </Grid>
-              {match.status !== 'LIVE' && (
+              {!canTag && (
                 <Typography variant="caption" color="text.secondary" mt={1} display="block">
                   Kick off the match to start logging events.
                 </Typography>
@@ -236,18 +411,31 @@ export default function LiveMatch() {
                   </Typography>
                 )}
                 {[...events].reverse().map((e) => (
-                  <ListItemText
+                  <ListItemButton
                     key={e.id}
-                    sx={{ py: 0.5 }}
-                    primary={
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip label={e.eventType.replace('_', ' ')} size="small" color="primary" />
-                        <Typography variant="body2">
-                          {e.minute != null ? `${e.minute}'` : ''} {e.playerName || ''}
-                        </Typography>
-                      </Stack>
-                    }
-                  />
+                    sx={{ py: 0.5, borderRadius: 1 }}
+                    disabled={e.videoSeconds == null || !match.videoUrl}
+                    onClick={() => seekToEvent(e.videoSeconds)}
+                  >
+                    <ListItemText
+                      primary={
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip label={e.eventType.replace('_', ' ')} size="small" color="primary" />
+                          <Typography variant="body2">
+                            {e.minute != null ? `${e.minute}'` : ''} {e.playerName || ''}
+                          </Typography>
+                          {e.videoSeconds != null && (
+                            <Chip
+                              label={fmtClock(e.videoSeconds)}
+                              size="small"
+                              variant="outlined"
+                              icon={<OndemandVideoIcon sx={{ fontSize: 14 }} />}
+                            />
+                          )}
+                        </Stack>
+                      }
+                    />
+                  </ListItemButton>
                 ))}
               </List>
             </CardContent>
@@ -262,11 +450,9 @@ export default function LiveMatch() {
         </DialogTitle>
         <DialogContent dividers>
           <List>
-            {pendingType !== 'CORNER' && (
-              <ListItemButton onClick={() => submitEvent(null)}>
-                <ListItemText primary="No specific player / team event" />
-              </ListItemButton>
-            )}
+            <ListItemButton onClick={() => submitEvent(null)}>
+              <ListItemText primary="No specific player / team event" />
+            </ListItemButton>
             {players.map((p) => (
               <ListItemButton key={p.id} onClick={() => submitEvent(p)}>
                 <ListItemText
@@ -278,6 +464,81 @@ export default function LiveMatch() {
           </List>
         </DialogContent>
       </Dialog>
+
+      {/* Video link / upload dialog */}
+      <Dialog open={videoOpen} onClose={() => !uploading && setVideoOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Match video</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="subtitle2" gutterBottom>
+            Paste a YouTube link
+          </Typography>
+          <TextField
+            fullWidth
+            label="YouTube URL"
+            placeholder="https://www.youtube.com/watch?v=…"
+            value={videoInput}
+            onChange={(e) => setVideoInput(e.target.value)}
+            disabled={uploading}
+          />
+          <Button
+            variant="contained"
+            sx={{ mt: 1 }}
+            onClick={saveVideo}
+            disabled={uploading || !videoInput.trim()}
+          >
+            Save link
+          </Button>
+
+          <Divider sx={{ my: 2 }}>OR</Divider>
+
+          <Typography variant="subtitle2" gutterBottom>
+            Upload a video from this device
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+            mp4, webm, mov or mkv — up to 1 GB.
+          </Typography>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/ogg"
+            style={{ display: 'none' }}
+            onChange={(e) => uploadFile(e.target.files?.[0])}
+          />
+          <Button
+            variant="outlined"
+            startIcon={<OndemandVideoIcon />}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            Choose file
+          </Button>
+          {uploading && (
+            <Box mt={2}>
+              <LinearProgress variant="determinate" value={uploadPct} />
+              <Typography variant="caption" color="text.secondary">
+                Uploading… {uploadPct}%
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVideoOpen(false)} disabled={uploading}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Lineup editor (coach only) */}
+      {lineupTeamId && canEditLineup && (
+        <LineupDialog
+          open={lineupOpen}
+          onClose={() => setLineupOpen(false)}
+          matchId={matchId}
+          teamId={lineupTeamId}
+          teamName={lineupTeamName}
+          onSaved={loadData}
+        />
+      )}
     </Box>
   );
 }

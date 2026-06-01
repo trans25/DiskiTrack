@@ -6,19 +6,26 @@ import {
   updateMatchStatus,
   updateMatch,
   deleteMatch,
+  uploadMatchVideo,
 } from '../controllers/match.controller.js';
 import {
   listMatchEvents,
   createMatchEvent,
   deleteMatchEvent,
 } from '../controllers/matchEvent.controller.js';
+import {
+  getMatchLineup,
+  saveMatchLineup,
+} from '../controllers/lineup.controller.js';
 import { authorize } from '../middleware/authorize.js';
 import { validateBody } from '../middleware/validate.js';
+import { uploadVideo } from '../middleware/uploadVideo.js';
 import {
   createMatchSchema,
   updateMatchStatusSchema,
   updateMatchSchema,
   createMatchEventSchema,
+  saveLineupSchema,
 } from '../validation/schemas.js';
 
 const router = Router();
@@ -46,6 +53,14 @@ router.patch(
 );
 router.delete('/:id', authorize('CLUB_ADMIN'), deleteMatch);
 
+// Upload a local match video file (mp4/webm/mov/mkv) for video-assisted tagging.
+router.post(
+  '/:id/video',
+  authorize('CLUB_ADMIN', 'COACH'),
+  uploadVideo,
+  uploadMatchVideo
+);
+
 //Live match events
 router.get('/:matchId/events', listMatchEvents);
 router.post(
@@ -58,6 +73,16 @@ router.delete(
   '/:matchId/events/:eventId',
   authorize('CLUB_ADMIN', 'COACH'),
   deleteMatchEvent
+);
+
+// Lineups / formations
+// Anyone in the club can view, but only the COACH selects/edits the lineup.
+router.get('/:matchId/lineup', getMatchLineup);
+router.put(
+  '/:matchId/lineup',
+  authorize('COACH'),
+  validateBody(saveLineupSchema),
+  saveMatchLineup
 );
 
 export default router;

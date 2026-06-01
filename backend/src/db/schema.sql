@@ -151,22 +151,37 @@ CREATE TRIGGER trg_players_updated
 
 -- ---------------------------------------------------------------------
 -- matches
+--   A match always involves at least one of THIS club's teams. The other
+--   side may be an external opponent that does not exist in the system, in
+--   which case its team_id is NULL and its name is stored as a free-text
+--   label (home_team_label / away_team_label).
 -- ---------------------------------------------------------------------
 CREATE TABLE matches (
-	id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-	tenant_id      UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
-	home_team_id   UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-	away_team_id   UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-	venue          VARCHAR(200),
-	scheduled_at   TIMESTAMPTZ NOT NULL,
-	status         match_status NOT NULL DEFAULT 'SCHEDULED',
-	home_score     SMALLINT NOT NULL DEFAULT 0,
-	away_score     SMALLINT NOT NULL DEFAULT 0,
-	kickoff_at     TIMESTAMPTZ,
-	finished_at    TIMESTAMPTZ,
-	created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-	updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-	CONSTRAINT chk_distinct_teams CHECK (home_team_id <> away_team_id)
+	id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	tenant_id       UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+	home_team_id    UUID REFERENCES teams(id) ON DELETE CASCADE,
+	away_team_id    UUID REFERENCES teams(id) ON DELETE CASCADE,
+	home_team_label VARCHAR(200),
+	away_team_label VARCHAR(200),
+	venue           VARCHAR(200),
+	scheduled_at    TIMESTAMPTZ NOT NULL,
+	status          match_status NOT NULL DEFAULT 'SCHEDULED',
+	home_score      SMALLINT NOT NULL DEFAULT 0,
+	away_score      SMALLINT NOT NULL DEFAULT 0,
+	kickoff_at      TIMESTAMPTZ,
+	finished_at     TIMESTAMPTZ,
+	video_url       TEXT,
+	created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+	updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+	-- The two sides must not be the same internal team.
+	CONSTRAINT chk_distinct_teams
+		CHECK (home_team_id IS NULL OR away_team_id IS NULL OR home_team_id <> away_team_id),
+	-- Each side is either an internal team OR has a label (never neither).
+	CONSTRAINT chk_home_side CHECK (home_team_id IS NOT NULL OR home_team_label IS NOT NULL),
+	CONSTRAINT chk_away_side CHECK (away_team_id IS NOT NULL OR away_team_label IS NOT NULL),
+	-- At least one side must be a real team belonging to this club.
+	CONSTRAINT chk_at_least_one_internal
+		CHECK (home_team_id IS NOT NULL OR away_team_id IS NOT NULL)
 );
 
 CREATE INDEX idx_matches_tenant_id    ON matches(tenant_id);
@@ -218,6 +233,7 @@ CREATE TABLE match_events (
 	related_player_id UUID REFERENCES players(id) ON DELETE SET NULL,
 	event_type        match_event_type NOT NULL,
 	minute            SMALLINT,
+	video_seconds     INTEGER,
 	notes             TEXT,
 	created_by        UUID REFERENCES users(id) ON DELETE SET NULL,
 	created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -299,4 +315,81 @@ CREATE INDEX idx_guardian_players_player_id ON guardian_players(player_id);
 
 CREATE TRIGGER trg_guardian_players_updated
 	BEFORE UPDATE ON guardian_players
+	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------
+-- announcements (club notice board)
+--   Posted by CLUB_ADMIN / COACH; visible to the whole club. `is_pinned`
+--   keeps important notices at the top of the board.
+-- ---------------------------------------------------------------------
+CREATE TABLE announcements (
+	id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	tenant_id   UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+	author_id   UUID REFERENCES users(id) ON DELETE SET NULL,
+	team_id     UUID REFERENCES teams(id) ON DELETE CASCADE,
+	title       VARCHAR(200) NOT NULL,
+	body        TEXT NOT NULL,
+	is_pinned   BOOLEAN NOT NULL DEFAULT FALSE,
+	created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+	updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_announcements_tenant_id ON announcements(tenant_id);
+CREATE INDEX idx_announcements_pinned    ON announcements(tenant_id, is_pinned);
+CREATE INDEX idx_announcements_team_id   ON announcements(team_id);
+
+CREATE TRIGGER trg_announcements_updated
+	BEFORE UPDATE ON announcements
+	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------
+-- training_sessions / training_attendance
+--   Coaches schedule training for their teams and record per-player
+--   availability/attendance.
+-- ---------------------------------------------------------------------
+DO $$
+BEGIN
+	CREATE TYPE attendance_status AS ENUM ('PRESENT', 'ABSENT', 'EXCUSED', 'INJURED', 'UNKNOWN');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS training_sessions (
+	id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	tenant_id    UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+	team_id      UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+	title        VARCHAR(200) NOT NULL,
+	location     VARCHAR(200),
+	focus        TEXT,
+	scheduled_at TIMESTAMPTZ NOT NULL,
+	duration_min SMALLINT,
+	created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+	created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+	updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_sessions_tenant_id ON training_sessions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_training_sessions_team_id   ON training_sessions(team_id);
+CREATE INDEX IF NOT EXISTS idx_training_sessions_when      ON training_sessions(scheduled_at);
+
+CREATE TRIGGER trg_training_sessions_updated
+	BEFORE UPDATE ON training_sessions
+	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS training_attendance (
+	id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	tenant_id   UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+	session_id  UUID NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
+	player_id   UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+	status      attendance_status NOT NULL DEFAULT 'UNKNOWN',
+	note        VARCHAR(200),
+	created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+	updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+	CONSTRAINT uq_attendance_player UNIQUE (session_id, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_attendance_tenant_id  ON training_attendance(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_training_attendance_session_id ON training_attendance(session_id);
+CREATE INDEX IF NOT EXISTS idx_training_attendance_player_id  ON training_attendance(player_id);
+
+CREATE TRIGGER trg_training_attendance_updated
+	BEFORE UPDATE ON training_attendance
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();

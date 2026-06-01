@@ -1,4 +1,6 @@
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -7,10 +9,17 @@ import { config } from './config/index.js';
 import apiRoutes from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export const createApp = () => {
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      // Allow <video> elements on the frontend origin to load uploaded files.
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
   app.use(
     cors({
       origin: config.clientOrigin,
@@ -19,6 +28,16 @@ export const createApp = () => {
   );
   app.use(express.json({ limit: '1mb' }));
   app.use(morgan(config.env === 'development' ? 'dev' : 'combined'));
+
+  // Serve uploaded match videos. Filenames are unguessable; range requests are
+  // supported by express.static so the <video> element can seek.
+  app.use(
+    '/uploads',
+    express.static(path.resolve(__dirname, '..', 'uploads'), {
+      maxAge: '1d',
+      fallthrough: false,
+    })
+  );
 
   // Basic abuse protection on the API surface.
   app.use(

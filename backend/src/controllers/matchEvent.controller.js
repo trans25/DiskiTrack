@@ -11,6 +11,7 @@ const toEvent = (r) => ({
   relatedPlayerId: r.related_player_id,
   eventType: r.event_type,
   minute: r.minute,
+  videoSeconds: r.video_seconds,
   notes: r.notes,
   createdAt: r.created_at,
   playerName: r.player_name,
@@ -37,7 +38,7 @@ export const listMatchEvents = asyncHandler(async (req, res) => {
   const { rows } = await query(
     `${SELECT_WITH_PLAYER}
       WHERE e.match_id = $1 AND ($2::uuid IS NULL OR e.tenant_id = $2)
-      ORDER BY e.minute NULLS LAST, e.created_at ASC`,
+      ORDER BY COALESCE(e.minute, e.video_seconds / 60) NULLS LAST, e.video_seconds NULLS LAST, e.created_at ASC`,
     [req.params.matchId, req.tenantId]
   );
   res.json(rows.map(toEvent));
@@ -54,7 +55,7 @@ export const listMatchEvents = asyncHandler(async (req, res) => {
  */
 export const createMatchEvent = asyncHandler(async (req, res) => {
   const { matchId } = req.params;
-  const { teamId, eventType, playerId, relatedPlayerId, minute, notes } = req.body;
+  const { teamId, eventType, playerId, relatedPlayerId, minute, videoSeconds, notes } = req.body;
 
   const result = await withTransaction(async (client) => {
     // Lock the match row to serialize concurrent score updates.
@@ -64,8 +65,8 @@ export const createMatchEvent = asyncHandler(async (req, res) => {
     );
     const match = matchRes.rows[0];
     if (!match) throw ApiError.notFound('Match not found');
-    if (match.status !== 'LIVE') {
-      throw ApiError.badRequest('Events can only be logged for LIVE matches');
+    if (match.status !== 'LIVE' && match.status !== 'FINISHED') {
+      throw ApiError.badRequest('Events can only be logged for LIVE or FINISHED matches');
     }
     if (teamId !== match.home_team_id && teamId !== match.away_team_id) {
       throw ApiError.badRequest('Team is not part of this match');
@@ -74,8 +75,8 @@ export const createMatchEvent = asyncHandler(async (req, res) => {
     // 2. Insert the event.
     const insertRes = await client.query(
       `INSERT INTO match_events
-         (tenant_id, match_id, team_id, player_id, related_player_id, event_type, minute, notes, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+         (tenant_id, match_id, team_id, player_id, related_player_id, event_type, minute, video_seconds, notes, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
       [
         req.tenantId,
         matchId,
@@ -84,6 +85,7 @@ export const createMatchEvent = asyncHandler(async (req, res) => {
         relatedPlayerId ?? null,
         eventType,
         minute ?? null,
+        videoSeconds ?? null,
         notes ?? null,
         req.user.id,
       ]
