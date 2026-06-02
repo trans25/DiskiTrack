@@ -171,6 +171,8 @@ CREATE TABLE matches (
 	kickoff_at      TIMESTAMPTZ,
 	finished_at     TIMESTAMPTZ,
 	video_url       TEXT,
+	home_formation  VARCHAR(20),
+	away_formation  VARCHAR(20),
 	created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
 	updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
 	-- The two sides must not be the same internal team.
