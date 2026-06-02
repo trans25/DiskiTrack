@@ -57,7 +57,7 @@ $$ LANGUAGE plpgsql;
 -- ---------------------------------------------------------------------
 -- clubs (tenants)
 -- ---------------------------------------------------------------------
-CREATE TABLE clubs (
+CREATE TABLE IF NOT EXISTS clubs (
 	id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	name        VARCHAR(160) NOT NULL,
 	slug        VARCHAR(160) NOT NULL UNIQUE,
@@ -77,8 +77,9 @@ CREATE TABLE clubs (
 	updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_clubs_status ON clubs(status);
+CREATE INDEX IF NOT EXISTS idx_clubs_status ON clubs(status);
 
+DROP TRIGGER IF EXISTS trg_clubs_updated ON clubs;
 CREATE TRIGGER trg_clubs_updated
 	BEFORE UPDATE ON clubs
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -87,7 +88,7 @@ CREATE TRIGGER trg_clubs_updated
 -- users
 --   tenant_id NULL only for SYSTEM_ADMIN (cross-tenant super user)
 -- ---------------------------------------------------------------------
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id     UUID REFERENCES clubs(id) ON DELETE CASCADE,
 	email         VARCHAR(255) NOT NULL,
@@ -105,9 +106,10 @@ CREATE TABLE users (
 			OR (role <> 'SYSTEM_ADMIN' AND tenant_id IS NOT NULL))
 );
 
-CREATE INDEX idx_users_tenant_id ON users(tenant_id);
-CREATE INDEX idx_users_email      ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_users_email      ON users(email);
 
+DROP TRIGGER IF EXISTS trg_users_updated ON users;
 CREATE TRIGGER trg_users_updated
 	BEFORE UPDATE ON users
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -115,7 +117,7 @@ CREATE TRIGGER trg_users_updated
 -- ---------------------------------------------------------------------
 -- auth_tokens — password reset + member invitation (single-use, hashed)
 -- ---------------------------------------------------------------------
-CREATE TABLE auth_tokens (
+CREATE TABLE IF NOT EXISTS auth_tokens (
 	id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 	token_hash  TEXT NOT NULL,
@@ -125,13 +127,13 @@ CREATE TABLE auth_tokens (
 	created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_auth_tokens_user ON auth_tokens(user_id);
-CREATE INDEX idx_auth_tokens_hash ON auth_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_hash ON auth_tokens(token_hash);
 
 -- ---------------------------------------------------------------------
 -- teams
 -- ---------------------------------------------------------------------
-CREATE TABLE teams (
+CREATE TABLE IF NOT EXISTS teams (
 	id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id   UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	name        VARCHAR(160) NOT NULL,
@@ -144,9 +146,10 @@ CREATE TABLE teams (
 	CONSTRAINT uq_teams_identity UNIQUE (tenant_id, name, age_group, category)
 );
 
-CREATE INDEX idx_teams_tenant_id ON teams(tenant_id);
-CREATE INDEX idx_teams_coach_id  ON teams(coach_id);
+CREATE INDEX IF NOT EXISTS idx_teams_tenant_id ON teams(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_teams_coach_id  ON teams(coach_id);
 
+DROP TRIGGER IF EXISTS trg_teams_updated ON teams;
 CREATE TRIGGER trg_teams_updated
 	BEFORE UPDATE ON teams
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -154,7 +157,7 @@ CREATE TRIGGER trg_teams_updated
 -- ---------------------------------------------------------------------
 -- players
 -- ---------------------------------------------------------------------
-CREATE TABLE players (
+CREATE TABLE IF NOT EXISTS players (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id     UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	team_id       UUID REFERENCES teams(id) ON DELETE SET NULL,
@@ -169,9 +172,10 @@ CREATE TABLE players (
 	updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_players_tenant_id ON players(tenant_id);
-CREATE INDEX idx_players_team_id   ON players(team_id);
+CREATE INDEX IF NOT EXISTS idx_players_tenant_id ON players(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_players_team_id   ON players(team_id);
 
+DROP TRIGGER IF EXISTS trg_players_updated ON players;
 CREATE TRIGGER trg_players_updated
 	BEFORE UPDATE ON players
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -183,7 +187,7 @@ CREATE TRIGGER trg_players_updated
 --   which case its team_id is NULL and its name is stored as a free-text
 --   label (home_team_label / away_team_label).
 -- ---------------------------------------------------------------------
-CREATE TABLE matches (
+CREATE TABLE IF NOT EXISTS matches (
 	id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id       UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	home_team_id    UUID REFERENCES teams(id) ON DELETE CASCADE,
@@ -213,12 +217,13 @@ CREATE TABLE matches (
 		CHECK (home_team_id IS NOT NULL OR away_team_id IS NOT NULL)
 );
 
-CREATE INDEX idx_matches_tenant_id    ON matches(tenant_id);
-CREATE INDEX idx_matches_status       ON matches(tenant_id, status);
-CREATE INDEX idx_matches_home_team    ON matches(home_team_id);
-CREATE INDEX idx_matches_away_team    ON matches(away_team_id);
-CREATE INDEX idx_matches_scheduled_at ON matches(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_matches_tenant_id    ON matches(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_matches_status       ON matches(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_matches_home_team    ON matches(home_team_id);
+CREATE INDEX IF NOT EXISTS idx_matches_away_team    ON matches(away_team_id);
+CREATE INDEX IF NOT EXISTS idx_matches_scheduled_at ON matches(scheduled_at);
 
+DROP TRIGGER IF EXISTS trg_matches_updated ON matches;
 CREATE TRIGGER trg_matches_updated
 	BEFORE UPDATE ON matches
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -226,7 +231,7 @@ CREATE TRIGGER trg_matches_updated
 -- ---------------------------------------------------------------------
 -- match_lineups
 -- ---------------------------------------------------------------------
-CREATE TABLE match_lineups (
+CREATE TABLE IF NOT EXISTS match_lineups (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id     UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	match_id      UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
@@ -240,10 +245,11 @@ CREATE TABLE match_lineups (
 	CONSTRAINT uq_lineup_player UNIQUE (match_id, player_id)
 );
 
-CREATE INDEX idx_lineups_tenant_id ON match_lineups(tenant_id);
-CREATE INDEX idx_lineups_match_id  ON match_lineups(match_id);
-CREATE INDEX idx_lineups_player_id ON match_lineups(player_id);
+CREATE INDEX IF NOT EXISTS idx_lineups_tenant_id ON match_lineups(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_lineups_match_id  ON match_lineups(match_id);
+CREATE INDEX IF NOT EXISTS idx_lineups_player_id ON match_lineups(player_id);
 
+DROP TRIGGER IF EXISTS trg_lineups_updated ON match_lineups;
 CREATE TRIGGER trg_lineups_updated
 	BEFORE UPDATE ON match_lineups
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -253,7 +259,7 @@ CREATE TRIGGER trg_lineups_updated
 --   related_player_id used e.g. for SUBSTITUTION (player coming on) or
 --   the assisting player on a GOAL.
 -- ---------------------------------------------------------------------
-CREATE TABLE match_events (
+CREATE TABLE IF NOT EXISTS match_events (
 	id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id         UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	match_id          UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
@@ -269,11 +275,12 @@ CREATE TABLE match_events (
 	updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_events_tenant_id ON match_events(tenant_id);
-CREATE INDEX idx_events_match_id  ON match_events(match_id);
-CREATE INDEX idx_events_player_id ON match_events(player_id);
-CREATE INDEX idx_events_type      ON match_events(match_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_events_tenant_id ON match_events(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_events_match_id  ON match_events(match_id);
+CREATE INDEX IF NOT EXISTS idx_events_player_id ON match_events(player_id);
+CREATE INDEX IF NOT EXISTS idx_events_type      ON match_events(match_id, event_type);
 
+DROP TRIGGER IF EXISTS trg_events_updated ON match_events;
 CREATE TRIGGER trg_events_updated
 	BEFORE UPDATE ON match_events
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -281,7 +288,7 @@ CREATE TRIGGER trg_events_updated
 -- ---------------------------------------------------------------------
 -- player_stats  (aggregated per player per match — analytics source)
 -- ---------------------------------------------------------------------
-CREATE TABLE player_stats (
+CREATE TABLE IF NOT EXISTS player_stats (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id     UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	match_id      UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
@@ -298,10 +305,11 @@ CREATE TABLE player_stats (
 	CONSTRAINT uq_player_stats UNIQUE (match_id, player_id)
 );
 
-CREATE INDEX idx_player_stats_tenant_id ON player_stats(tenant_id);
-CREATE INDEX idx_player_stats_match_id  ON player_stats(match_id);
-CREATE INDEX idx_player_stats_player_id ON player_stats(player_id);
+CREATE INDEX IF NOT EXISTS idx_player_stats_tenant_id ON player_stats(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_player_stats_match_id  ON player_stats(match_id);
+CREATE INDEX IF NOT EXISTS idx_player_stats_player_id ON player_stats(player_id);
 
+DROP TRIGGER IF EXISTS trg_player_stats_updated ON player_stats;
 CREATE TRIGGER trg_player_stats_updated
 	BEFORE UPDATE ON player_stats
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -309,7 +317,7 @@ CREATE TRIGGER trg_player_stats_updated
 -- ---------------------------------------------------------------------
 -- guardians (1:1 with a GUARDIAN user account)
 -- ---------------------------------------------------------------------
-CREATE TABLE guardians (
+CREATE TABLE IF NOT EXISTS guardians (
 	id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id    UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -320,8 +328,9 @@ CREATE TABLE guardians (
 	CONSTRAINT uq_guardian_user UNIQUE (user_id)
 );
 
-CREATE INDEX idx_guardians_tenant_id ON guardians(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_guardians_tenant_id ON guardians(tenant_id);
 
+DROP TRIGGER IF EXISTS trg_guardians_updated ON guardians;
 CREATE TRIGGER trg_guardians_updated
 	BEFORE UPDATE ON guardians
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -329,7 +338,7 @@ CREATE TRIGGER trg_guardians_updated
 -- ---------------------------------------------------------------------
 -- guardian_players (M:N — which players a guardian may view)
 -- ---------------------------------------------------------------------
-CREATE TABLE guardian_players (
+CREATE TABLE IF NOT EXISTS guardian_players (
 	id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id   UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	guardian_id UUID NOT NULL REFERENCES guardians(id) ON DELETE CASCADE,
@@ -339,9 +348,10 @@ CREATE TABLE guardian_players (
 	CONSTRAINT uq_guardian_player UNIQUE (guardian_id, player_id)
 );
 
-CREATE INDEX idx_guardian_players_tenant_id ON guardian_players(tenant_id);
-CREATE INDEX idx_guardian_players_player_id ON guardian_players(player_id);
+CREATE INDEX IF NOT EXISTS idx_guardian_players_tenant_id ON guardian_players(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_guardian_players_player_id ON guardian_players(player_id);
 
+DROP TRIGGER IF EXISTS trg_guardian_players_updated ON guardian_players;
 CREATE TRIGGER trg_guardian_players_updated
 	BEFORE UPDATE ON guardian_players
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -351,7 +361,7 @@ CREATE TRIGGER trg_guardian_players_updated
 --   Posted by CLUB_ADMIN / COACH; visible to the whole club. `is_pinned`
 --   keeps important notices at the top of the board.
 -- ---------------------------------------------------------------------
-CREATE TABLE announcements (
+CREATE TABLE IF NOT EXISTS announcements (
 	id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	tenant_id   UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
 	author_id   UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -363,10 +373,11 @@ CREATE TABLE announcements (
 	updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_announcements_tenant_id ON announcements(tenant_id);
-CREATE INDEX idx_announcements_pinned    ON announcements(tenant_id, is_pinned);
-CREATE INDEX idx_announcements_team_id   ON announcements(team_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_tenant_id ON announcements(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_pinned    ON announcements(tenant_id, is_pinned);
+CREATE INDEX IF NOT EXISTS idx_announcements_team_id   ON announcements(team_id);
 
+DROP TRIGGER IF EXISTS trg_announcements_updated ON announcements;
 CREATE TRIGGER trg_announcements_updated
 	BEFORE UPDATE ON announcements
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -399,6 +410,7 @@ CREATE INDEX IF NOT EXISTS idx_training_sessions_tenant_id ON training_sessions(
 CREATE INDEX IF NOT EXISTS idx_training_sessions_team_id   ON training_sessions(team_id);
 CREATE INDEX IF NOT EXISTS idx_training_sessions_when      ON training_sessions(scheduled_at);
 
+DROP TRIGGER IF EXISTS trg_training_sessions_updated ON training_sessions;
 CREATE TRIGGER trg_training_sessions_updated
 	BEFORE UPDATE ON training_sessions
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -419,6 +431,7 @@ CREATE INDEX IF NOT EXISTS idx_training_attendance_tenant_id  ON training_attend
 CREATE INDEX IF NOT EXISTS idx_training_attendance_session_id ON training_attendance(session_id);
 CREATE INDEX IF NOT EXISTS idx_training_attendance_player_id  ON training_attendance(player_id);
 
+DROP TRIGGER IF EXISTS trg_training_attendance_updated ON training_attendance;
 CREATE TRIGGER trg_training_attendance_updated
 	BEFORE UPDATE ON training_attendance
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
