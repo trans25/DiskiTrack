@@ -2,7 +2,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const required = ['JWT_SECRET', 'JWT_REFRESH_SECRET', 'PGDATABASE'];
+const required = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
+// In production the database is supplied via DATABASE_URL; locally via PGDATABASE.
+if (!process.env.DATABASE_URL) required.push('PGDATABASE');
 for (const key of required) {
   if (!process.env[key]) {
     // eslint-disable-next-line no-console

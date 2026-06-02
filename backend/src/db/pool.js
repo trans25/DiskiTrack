@@ -3,16 +3,31 @@ import { config } from '../config/index.js';
 
 const { Pool } = pg;
 
-export const pool = new Pool({
-  host: config.db.host,
-  port: config.db.port,
-  database: config.db.database,
-  user: config.db.user,
-  password: config.db.password,
-  max: 20,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
-});
+// In production (e.g. Render) a single DATABASE_URL connection string is
+// provided and the managed Postgres requires SSL. Locally we fall back to the
+// individual PG* settings with no SSL.
+const useConnectionString = Boolean(process.env.DATABASE_URL);
+
+export const pool = new Pool(
+  useConnectionString
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+        max: 20,
+        idleTimeoutMillis: 30_000,
+        connectionTimeoutMillis: 5_000,
+      }
+    : {
+        host: config.db.host,
+        port: config.db.port,
+        database: config.db.database,
+        user: config.db.user,
+        password: config.db.password,
+        max: 20,
+        idleTimeoutMillis: 30_000,
+        connectionTimeoutMillis: 5_000,
+      }
+);
 
 pool.on('error', (err) => {
   // eslint-disable-next-line no-console

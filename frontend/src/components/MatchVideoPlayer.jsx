@@ -9,6 +9,20 @@ export function isYouTubeSource(url) {
   return !!parseYouTubeId(url);
 }
 
+// Uploaded videos are stored as backend-relative paths (e.g. /uploads/...).
+// In production the frontend (Vercel) and backend (Render) are on different
+// origins, so prefix those paths with the backend origin derived from the API
+// base URL. Absolute URLs (http/https, YouTube) are returned unchanged.
+export function resolveVideoSrc(src) {
+  if (!src || /^https?:\/\//i.test(src)) return src;
+  if (src.startsWith('/uploads')) {
+    const apiBase = import.meta.env.VITE_API_URL || '/api';
+    const origin = apiBase.replace(/\/api\/?$/, '');
+    return `${origin}${src}`;
+  }
+  return src;
+}
+
 /**
  * Unified match video player for video-assisted tagging.
  * Exposes the same imperative API regardless of source type:
@@ -72,7 +86,7 @@ const MatchVideoPlayer = forwardRef(function MatchVideoPlayer({ src }, ref) {
     <Box sx={{ aspectRatio: '16 / 9', bgcolor: '#000', borderRadius: 1, overflow: 'hidden' }}>
       <video
         ref={videoRef}
-        src={src}
+        src={resolveVideoSrc(src)}
         controls
         playsInline
         style={{ width: '100%', height: '100%', display: 'block' }}
