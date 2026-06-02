@@ -20,6 +20,33 @@ export const loginSchema = z.object({
   password: z.string().min(6),
 });
 
+export const registerClubSchema = z.object({
+  clubName: z.string().min(2).max(160),
+  country: z.string().max(80).optional(),
+  city: z.string().max(120).optional(),
+  firstName: z.string().min(1).max(120),
+  lastName: z.string().min(1).max(120),
+  email: z.string().email(),
+  password: z.string().min(6).max(100),
+  // base64 data URI of the proof document (e.g. "data:application/pdf;base64,...").
+  proofDocument: z.string().min(1).max(8_000_000),
+  proofFilename: z.string().max(255).optional(),
+});
+
+export const rejectClubSchema = z.object({
+  reason: z.string().max(1000).optional(),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(10),
+  password: z.string().min(6).max(100),
+  purpose: z.enum(['RESET', 'INVITE']).optional(),
+});
+
 export const createClubSchema = z.object({
   name: z.string().min(2).max(160),
   slug: z.string().min(2).max(160).regex(/^[a-z0-9-]+$/),
@@ -39,6 +66,14 @@ export const createClubSchema = z.object({
 export const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  firstName: z.string().min(1).max(120),
+  lastName: z.string().min(1).max(120),
+  role: z.enum(['CLUB_ADMIN', 'COACH', 'ANALYST', 'GUARDIAN']),
+});
+
+// Invite a member: no password — they set their own via the emailed link.
+export const inviteUserSchema = z.object({
+  email: z.string().email(),
   firstName: z.string().min(1).max(120),
   lastName: z.string().min(1).max(120),
   role: z.enum(['CLUB_ADMIN', 'COACH', 'ANALYST', 'GUARDIAN']),

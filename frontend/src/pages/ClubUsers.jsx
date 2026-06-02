@@ -21,6 +21,8 @@ import {
   Tabs,
   Tab,
   Avatar,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { api } from '../api/client.js';
@@ -42,11 +44,12 @@ export default function ClubUsers() {
   const [players, setPlayers] = useState([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
+  const [inviteLink, setInviteLink] = useState('');
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
     email: '',
-    password: '',
     role: 'COACH',
   });
 
@@ -58,15 +61,37 @@ export default function ClubUsers() {
     if (!isSystemAdmin) loadPlayers();
   }, [isSystemAdmin]);
 
-  const handleCreate = async () => {
+  const handleInvite = async () => {
     setError('');
+    setInviteLink('');
     try {
-      await api.post('/users', form);
+      const { data } = await api.post('/users/invite', form);
       setOpen(false);
-      setForm({ firstName: '', lastName: '', email: '', password: '', role: 'COACH' });
+      setForm({ firstName: '', lastName: '', email: '', role: 'COACH' });
       loadUsers();
+      if (data.emailDelivered) {
+        setToast(`Invitation email sent to ${data.email}`);
+      } else if (data.inviteLink) {
+        // Dev / no-SMTP: surface the link so the admin can share it manually.
+        setInviteLink(data.inviteLink);
+      } else {
+        setToast('User invited');
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create user');
+      setError(err.response?.data?.error || 'Failed to invite user');
+    }
+  };
+
+  const handleResend = async (id) => {
+    try {
+      const { data } = await api.post(`/users/${id}/resend-invite`);
+      if (data.emailDelivered) {
+        setToast('Invitation re-sent');
+      } else if (data.inviteLink) {
+        setInviteLink(data.inviteLink);
+      }
+    } catch (err) {
+      setToast(err.response?.data?.error || 'Failed to resend invite');
     }
   };
 
@@ -81,10 +106,20 @@ export default function ClubUsers() {
         </Typography>
         {canManage && tab === 0 && (
           <Button startIcon={<AddIcon />} onClick={() => setOpen(true)}>
-            Add User
+            Invite User
           </Button>
         )}
       </Stack>
+
+      {inviteLink && (
+        <Alert severity="info" sx={{ mb: 2 }} onClose={() => setInviteLink('')}>
+          Email isn&apos;t configured, so share this activation link with the member:
+          <br />
+          <Box component="code" sx={{ wordBreak: 'break-all', fontSize: 13 }}>
+            {inviteLink}
+          </Box>
+        </Alert>
+      )}
 
       {/* SYSTEM_ADMIN: club admins only (no tenant membership) */}
       {isSystemAdmin && (
@@ -147,7 +182,20 @@ export default function ClubUsers() {
                       <TableCell>
                         <Chip label={x.role.replace('_', ' ')} color={ROLE_COLORS[x.role]} size="small" />
                       </TableCell>
-                      <TableCell>{x.isActive ? 'Active' : 'Inactive'}</TableCell>
+                      <TableCell>
+                        {x.isActive ? (
+                          <Chip label="Active" color="success" size="small" variant="outlined" />
+                        ) : (
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Chip label="Pending" color="warning" size="small" variant="outlined" />
+                            {canManage && (
+                              <Button size="small" onClick={() => handleResend(x.id)}>
+                                Resend
+                              </Button>
+                            )}
+                          </Stack>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
               </TableBody>
@@ -219,9 +267,9 @@ export default function ClubUsers() {
         </Card>
       )}
 
-      {/* Add user dialog */}
+      {/* Invite user dialog */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Add Club User</DialogTitle>
+        <DialogTitle>Invite Club User</DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={1}>
             {error && (
@@ -229,10 +277,13 @@ export default function ClubUsers() {
                 {error}
               </Typography>
             )}
+            <Typography variant="body2" color="text.secondary">
+              We&apos;ll email them a secure link to set their own password and
+              activate their account.
+            </Typography>
             <TextField label="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} fullWidth />
             <TextField label="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} fullWidth />
             <TextField label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} fullWidth />
-            <TextField label="Temporary password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} fullWidth />
             <TextField select label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} fullWidth>
               <MenuItem value="CLUB_ADMIN">Club Admin</MenuItem>
               <MenuItem value="COACH">Coach</MenuItem>
@@ -246,13 +297,21 @@ export default function ClubUsers() {
             Cancel
           </Button>
           <Button
-            onClick={handleCreate}
-            disabled={!form.firstName || !form.lastName || !form.email || form.password.length < 6}
+            onClick={handleInvite}
+            disabled={!form.firstName || !form.lastName || !form.email}
           >
-            Create
+            Send invite
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={4000}
+        onClose={() => setToast('')}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 }

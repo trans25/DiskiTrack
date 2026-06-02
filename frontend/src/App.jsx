@@ -3,6 +3,9 @@ import { useAuth } from './context/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import AppLayout from './components/AppLayout.jsx';
 import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import SetPassword from './pages/SetPassword.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Teams from './pages/Teams.jsx';
 import Players from './pages/Players.jsx';
@@ -14,6 +17,8 @@ import Analytics from './pages/Analytics.jsx';
 import ClubUsers from './pages/ClubUsers.jsx';
 import Announcements from './pages/Announcements.jsx';
 import Training from './pages/Training.jsx';
+import Standings from './pages/Standings.jsx';
+import Applications from './pages/Applications.jsx';
 
 export default function App() {
   const { loading } = useAuth();
@@ -22,6 +27,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<SetPassword purpose="RESET" />} />
+      <Route path="/accept-invite" element={<SetPassword purpose="INVITE" />} />
 
       <Route
         element={
@@ -37,10 +46,12 @@ export default function App() {
         <Route path="/matches" element={<Matches />} />
         <Route path="/matches/:id/live" element={<LiveMatch />} />
         <Route path="/history" element={<MatchHistory />} />
+        <Route path="/standings" element={<Standings />} />
         <Route path="/training" element={<Training />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/announcements" element={<Announcements />} />
         <Route path="/users" element={<ClubUsers />} />
+        <Route path="/admin/applications" element={<Applications />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

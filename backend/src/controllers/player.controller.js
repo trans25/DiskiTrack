@@ -12,6 +12,7 @@ const toPlayer = (r) => ({
   position: r.position,
   jerseyNumber: r.jersey_number,
   photoUrl: r.photo_url,
+  clubLogoUrl: r.club_logo_url ?? null,
   isActive: r.is_active,
 });
 
@@ -19,12 +20,15 @@ export const listPlayers = asyncHandler(async (req, res) => {
   const { teamId } = req.query;
   // SYSTEM_ADMIN (null tenant) sees players across all clubs.
   const params = [req.tenantId];
-  let sql = `SELECT * FROM players WHERE ($1::uuid IS NULL OR tenant_id = $1)`;
+  let sql = `SELECT p.*, c.logo_url AS club_logo_url
+               FROM players p
+               LEFT JOIN clubs c ON c.id = p.tenant_id
+              WHERE ($1::uuid IS NULL OR p.tenant_id = $1)`;
   if (teamId) {
     params.push(teamId);
-    sql += ` AND team_id = $${params.length}`;
+    sql += ` AND p.team_id = $${params.length}`;
   }
-  sql += ` ORDER BY last_name, first_name`;
+  sql += ` ORDER BY p.last_name, p.first_name`;
   const { rows } = await query(sql, params);
   res.json(rows.map(toPlayer));
 });
@@ -115,9 +119,11 @@ export const getPlayerProfile = asyncHandler(async (req, res) => {
   // 1. Player bio + team + computed age.
   const playerRes = await query(
     `SELECT p.*, t.name AS team_name, t.age_group, t.category,
+            c.logo_url AS club_logo_url,
             date_part('year', age(p.date_of_birth))::int AS age
        FROM players p
        LEFT JOIN teams t ON t.id = p.team_id
+       LEFT JOIN clubs c ON c.id = p.tenant_id
       WHERE p.id = $1 AND ($2::uuid IS NULL OR p.tenant_id = $2)`,
     [playerId, t]
   );
@@ -197,6 +203,7 @@ export const getPlayerProfile = asyncHandler(async (req, res) => {
       dateOfBirth: p.date_of_birth,
       age: p.age,
       photoUrl: p.photo_url,
+      clubLogoUrl: p.club_logo_url ?? null,
       isActive: p.is_active,
       teamId: p.team_id,
       teamName: p.team_name,

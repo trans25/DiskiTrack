@@ -65,9 +65,19 @@ CREATE TABLE clubs (
 	city        VARCHAR(120),
 	logo_url    TEXT,
 	is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+	-- Self-registration approval workflow.
+	status           VARCHAR(20) NOT NULL DEFAULT 'APPROVED', -- PENDING | APPROVED | REJECTED
+	proof_document   TEXT,          -- base64 data URI of the uploaded proof
+	proof_filename   VARCHAR(255),
+	rejection_reason TEXT,
+	reviewed_at      TIMESTAMPTZ,
+	reviewed_by      UUID,
+	contact_email    VARCHAR(255),
 	created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
 	updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX idx_clubs_status ON clubs(status);
 
 CREATE TRIGGER trg_clubs_updated
 	BEFORE UPDATE ON clubs
@@ -103,6 +113,22 @@ CREATE TRIGGER trg_users_updated
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ---------------------------------------------------------------------
+-- auth_tokens — password reset + member invitation (single-use, hashed)
+-- ---------------------------------------------------------------------
+CREATE TABLE auth_tokens (
+	id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	token_hash  TEXT NOT NULL,
+	purpose     VARCHAR(20) NOT NULL DEFAULT 'RESET',
+	expires_at  TIMESTAMPTZ NOT NULL,
+	used_at     TIMESTAMPTZ,
+	created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_auth_tokens_user ON auth_tokens(user_id);
+CREATE INDEX idx_auth_tokens_hash ON auth_tokens(token_hash);
+
+-- ---------------------------------------------------------------------
 -- teams
 -- ---------------------------------------------------------------------
 CREATE TABLE teams (
@@ -111,6 +137,7 @@ CREATE TABLE teams (
 	name        VARCHAR(160) NOT NULL,
 	age_group   age_group NOT NULL,
 	category    team_category NOT NULL,
+	logo_url    TEXT,
 	coach_id    UUID REFERENCES users(id) ON DELETE SET NULL,
 	created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
 	updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),

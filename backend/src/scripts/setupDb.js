@@ -26,6 +26,19 @@ const run = async () => {
     await pool.query(readSql('schema.sql'));
     console.log('[setup] Schema applied.');
 
+    // Apply incremental migrations too. They are all idempotent (IF NOT EXISTS /
+    // guarded ALTERs), so existing databases created from an older schema pick up
+    // newly added columns/tables (e.g. the club approval workflow).
+    const migrationsDir = path.join(dbDir, 'migrations');
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
+      for (const file of files) {
+        console.log(`[setup] Applying migration ${file} ...`);
+        await pool.query(fs.readFileSync(path.join(migrationsDir, file), 'utf8'));
+      }
+      console.log('[setup] Migrations applied.');
+    }
+
     if (process.env.SKIP_SEED === 'true') {
       console.log('[setup] SKIP_SEED=true — skipping demo seed.');
     } else {

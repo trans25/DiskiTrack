@@ -105,6 +105,7 @@ export default function TeamOverviewDialog({ teamId, open, onClose }) {
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Avatar
                 variant="rounded"
+                src={data.team.logoUrl || data.team.clubLogoUrl || undefined}
                 sx={{ bgcolor: 'primary.main', width: 44, height: 44, borderRadius: 2.5 }}
               >
                 <GroupsIcon />

@@ -36,6 +36,34 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
+  // Shared by registration and reset/invite flows: persist tokens + set user.
+  const applySession = (data) => {
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    setUser(data.user);
+    connectSocket();
+    return data.user;
+  };
+
+  // Registration now creates a PENDING club that must be approved by a system
+  // admin, so no session is established here — we just return the API response.
+  const register = async (payload) => {
+    const { data } = await api.post('/auth/register', payload);
+    return data;
+  };
+
+  const forgotPassword = (email) =>
+    api.post('/auth/forgot-password', { email }).then((r) => r.data);
+
+  const resetPassword = async (token, password, purpose = 'RESET') => {
+    const { data } = await api.post('/auth/reset-password', {
+      token,
+      password,
+      purpose,
+    });
+    return applySession(data);
+  };
+
   const logout = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -45,7 +73,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, isAuthenticated: !!user }),
+    () => ({
+      user,
+      loading,
+      login,
+      register,
+      forgotPassword,
+      resetPassword,
+      logout,
+      isAuthenticated: !!user,
+    }),
     [user, loading]
   );
 

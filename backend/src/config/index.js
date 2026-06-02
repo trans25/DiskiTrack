@@ -29,4 +29,17 @@ export const config = {
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
+  // Public URL of the frontend, used to build links inside emails (reset /
+  // invite). Falls back to the CORS client origin.
+  appUrl: process.env.APP_URL || process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  // SMTP / email. When host is unset, emails are logged to the console so the
+  // full flow still works locally without a mail server.
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || 'DiskiTrack <no-reply@diskitrack.app>',
+  },
 };

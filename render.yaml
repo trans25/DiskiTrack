@@ -38,3 +38,21 @@ services:
       # e.g. https://diskitrack.vercel.app
       - key: CLIENT_ORIGIN
         sync: false
+      # Public frontend URL used inside email links (reset / invite). Usually
+      # the same as CLIENT_ORIGIN. Set in the Render dashboard.
+      - key: APP_URL
+        sync: false
+      # SMTP (email). Set these in the Render dashboard to enable real emails.
+      # Leave blank to disable sending (links are logged to the service logs).
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false

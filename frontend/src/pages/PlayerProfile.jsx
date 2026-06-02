@@ -6,11 +6,11 @@ import {
   Card,
   CardContent,
   Grid,
-  Avatar,
   Stack,
   Divider,
 } from '@mui/material';
 import { api } from '../api/client.js';
+import PlayerCard from '../components/PlayerCard.jsx';
 
 const StatBox = ({ label, value }) => (
   <Grid item xs={4} sm={2}>
@@ -43,18 +43,30 @@ export default function PlayerProfile() {
     <Box>
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar sx={{ width: 64, height: 64, bgcolor: 'primary.main', fontSize: 28 }}>
-              {player.firstName[0]}
-            </Avatar>
-            <Box>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={3}
+            alignItems={{ xs: 'center', sm: 'flex-start' }}
+          >
+            <PlayerCard player={player} width={200} />
+            <Box sx={{ pt: { sm: 2 } }}>
               <Typography variant="h5" fontWeight={700}>
                 {player.firstName} {player.lastName}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" gutterBottom>
                 {player.position || 'Position N/A'}
                 {player.jerseyNumber != null ? ` · #${player.jerseyNumber}` : ''}
               </Typography>
+              {player.teamName && (
+                <Typography variant="body2" color="text.secondary">
+                  {player.teamName}
+                </Typography>
+              )}
+              {player.age != null && (
+                <Typography variant="body2" color="text.secondary">
+                  Age {player.age}
+                </Typography>
+              )}
             </Box>
           </Stack>
         </CardContent>

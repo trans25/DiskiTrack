@@ -31,7 +31,9 @@ export const createApp = () => {
       credentials: true,
     })
   );
-  app.use(express.json({ limit: '1mb' }));
+  // Larger limit so base64 image data URLs (player photos, club/team logos)
+  // sent as JSON do not get rejected and reset the connection.
+  app.use(express.json({ limit: '10mb' }));
   app.use(morgan(config.env === 'development' ? 'dev' : 'combined'));
 
   // Serve uploaded match videos. Filenames are unguessable; range requests are

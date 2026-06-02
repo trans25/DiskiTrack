@@ -11,6 +11,7 @@ import statsRoutes from './stats.routes.js';
 import announcementRoutes from './announcement.routes.js';
 import trainingRoutes from './training.routes.js';
 import coachRoutes from './coach.routes.js';
+import standingsRoutes from './standings.routes.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { tenantIsolation } from '../middleware/tenantIsolation.js';
 
@@ -33,5 +34,6 @@ router.use('/stats', statsRoutes);
 router.use('/announcements', announcementRoutes);
 router.use('/training', trainingRoutes);
 router.use('/coach', coachRoutes);
+router.use('/standings', standingsRoutes);
 
 export default router;

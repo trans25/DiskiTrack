@@ -23,6 +23,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ApartmentIcon from '@mui/icons-material/Apartment';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import TeamOverviewDialog from '../components/TeamOverviewDialog.jsx';
@@ -80,7 +81,12 @@ export default function Teams() {
     for (const t of teams) {
       const key = t.clubId || 'unknown';
       if (!map.has(key)) {
-        map.set(key, { clubId: key, clubName: t.clubName || 'Unassigned', teams: [] });
+        map.set(key, {
+          clubId: key,
+          clubName: t.clubName || 'Unassigned',
+          clubLogoUrl: t.clubLogoUrl || null,
+          teams: [],
+        });
       }
       map.get(key).teams.push(t);
     }
@@ -246,6 +252,7 @@ export default function Teams() {
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                     <Avatar
                       variant="rounded"
+                      src={g.clubLogoUrl || undefined}
                       sx={{ bgcolor: 'primary.main', width: 44, height: 44, borderRadius: 2.5 }}
                     >
                       <ApartmentIcon />
@@ -322,6 +329,7 @@ export default function Teams() {
               <Stack direction="row" spacing={1.5} alignItems="center">
                 <Avatar
                   variant="rounded"
+                  src={detailClub.clubLogoUrl || undefined}
                   sx={{ bgcolor: 'primary.main', width: 40, height: 40, borderRadius: 2.5 }}
                 >
                   <ApartmentIcon />
@@ -364,14 +372,23 @@ export default function Teams() {
                               justifyContent="space-between"
                               alignItems="center"
                             >
-                              <Typography
-                                variant="subtitle2"
-                                fontWeight={700}
-                                noWrap
-                                title={t.name}
-                              >
-                                {t.name}
-                              </Typography>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                                <Avatar
+                                  variant="rounded"
+                                  src={t.logoUrl || t.clubLogoUrl || undefined}
+                                  sx={{ bgcolor: 'primary.main', width: 28, height: 28, borderRadius: 1.5 }}
+                                >
+                                  <GroupsIcon sx={{ fontSize: 16 }} />
+                                </Avatar>
+                                <Typography
+                                  variant="subtitle2"
+                                  fontWeight={700}
+                                  noWrap
+                                  title={t.name}
+                                >
+                                  {t.name}
+                                </Typography>
+                              </Stack>
                               {canManageTeams && (
                                 <Stack direction="row" spacing={0.5}>
                                   <IconButton

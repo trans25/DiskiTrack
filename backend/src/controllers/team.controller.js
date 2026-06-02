@@ -8,9 +8,11 @@ const toTeam = (r) => ({
   tenantId: r.tenant_id,
   clubId: r.tenant_id,
   clubName: r.club_name,
+  clubLogoUrl: r.club_logo_url,
   name: r.name,
   ageGroup: r.age_group,
   category: r.category,
+  logoUrl: r.logo_url,
   coachId: r.coach_id,
   createdAt: r.created_at,
 });
@@ -20,7 +22,7 @@ export const listTeams = asyncHandler(async (req, res) => {
   const { clause, params } = tenantFilter(req.tenantId, 't.tenant_id');
   const where = clause ? `WHERE ${clause}` : '';
   const { rows } = await query(
-    `SELECT t.*, c.name AS club_name
+    `SELECT t.*, c.name AS club_name, c.logo_url AS club_logo_url
        FROM teams t
        JOIN clubs c ON c.id = t.tenant_id
        ${where}
@@ -41,7 +43,7 @@ export const getTeam = asyncHandler(async (req, res) => {
 });
 
 export const createTeam = asyncHandler(async (req, res) => {
-  const { name, ageGroup, category, coachId } = req.body;
+  const { name, ageGroup, category, coachId, logoUrl } = req.body;
   // Creating a team needs a concrete tenant. A SYSTEM_ADMIN must target one
   // via the x-tenant-id header (or ?tenantId=).
   if (!req.tenantId) {
@@ -50,24 +52,25 @@ export const createTeam = asyncHandler(async (req, res) => {
     );
   }
   const { rows } = await query(
-    `INSERT INTO teams (tenant_id, name, age_group, category, coach_id)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [req.tenantId, name, ageGroup, category, coachId ?? null]
+    `INSERT INTO teams (tenant_id, name, age_group, category, logo_url, coach_id)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [req.tenantId, name, ageGroup, category, logoUrl ?? null, coachId ?? null]
   );
   res.status(201).json(toTeam(rows[0]));
 });
 
 export const updateTeam = asyncHandler(async (req, res) => {
-  const { name, ageGroup, category, coachId } = req.body;
+  const { name, ageGroup, category, coachId, logoUrl } = req.body;
   const { rows } = await query(
     `UPDATE teams
         SET name = COALESCE($3, name),
             age_group = COALESCE($4, age_group),
             category = COALESCE($5, category),
-            coach_id = COALESCE($6, coach_id)
+            coach_id = COALESCE($6, coach_id),
+            logo_url = COALESCE($7, logo_url)
       WHERE id = $1 AND ($2::uuid IS NULL OR tenant_id = $2)
       RETURNING *`,
-    [req.params.id, req.tenantId, name, ageGroup, category, coachId]
+    [req.params.id, req.tenantId, name, ageGroup, category, coachId, logoUrl]
   );
   if (!rows[0]) throw ApiError.notFound('Team not found');
   res.json(toTeam(rows[0]));
@@ -89,7 +92,7 @@ export const getTeamOverview = asyncHandler(async (req, res) => {
 
   // 1. Team + club + assigned coach.
   const teamRes = await query(
-    `SELECT te.*, c.name AS club_name,
+    `SELECT te.*, c.name AS club_name, c.logo_url AS club_logo_url,
             co.id AS coach_user_id, co.first_name AS coach_first_name,
             co.last_name AS coach_last_name, co.email AS coach_email
        FROM teams te
@@ -216,8 +219,10 @@ export const getTeamOverview = asyncHandler(async (req, res) => {
       name: team.name,
       ageGroup: team.age_group,
       category: team.category,
+      logoUrl: team.logo_url,
       clubId: team.tenant_id,
       clubName: team.club_name,
+      clubLogoUrl: team.club_logo_url,
       coach: team.coach_user_id
         ? {
             id: team.coach_user_id,

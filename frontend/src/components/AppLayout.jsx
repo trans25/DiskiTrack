@@ -24,9 +24,11 @@ import PersonIcon from '@mui/icons-material/Person';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import HistoryIcon from '@mui/icons-material/History';
 import InsightsIcon from '@mui/icons-material/Insights';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import CampaignIcon from '@mui/icons-material/Campaign';
 import BadgeIcon from '@mui/icons-material/Badge';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Badge } from '@mui/material';
@@ -40,11 +42,13 @@ const navItems = [
   { label: 'Teams', icon: <GroupsIcon />, path: '/teams' },
   { label: 'Players', icon: <PersonIcon />, path: '/players', roles: ['CLUB_ADMIN', 'COACH', 'ANALYST', 'GUARDIAN'] },
   { label: 'Matches', icon: <SportsSoccerIcon />, path: '/matches' },
+  { label: 'Standings', icon: <EmojiEventsIcon />, path: '/standings' },
   { label: 'Training', icon: <FitnessCenterIcon />, path: '/training', roles: ['CLUB_ADMIN', 'COACH'] },
   { label: 'Match History', icon: <HistoryIcon />, path: '/history' },
   { label: 'Analytics', icon: <InsightsIcon />, path: '/analytics', roles: ['SYSTEM_ADMIN', 'CLUB_ADMIN', 'COACH', 'ANALYST'] },
   { label: 'Announcements', icon: <CampaignIcon />, path: '/announcements' },
   { label: 'Members', icon: <BadgeIcon />, path: '/users', roles: ['CLUB_ADMIN', 'SYSTEM_ADMIN'] },
+  { label: 'Applications', icon: <VerifiedUserIcon />, path: '/admin/applications', roles: ['SYSTEM_ADMIN'] },
 ];
 
 export default function AppLayout() {
