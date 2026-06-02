@@ -17,11 +17,15 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: npm run setup-db && npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      # setup-db runs on every boot; SKIP_SEED keeps it from re-seeding demo
+      # data in production (it already skips when users exist).
+      - key: SKIP_SEED
+        value: "true"
       - key: DATABASE_URL
         fromDatabase:
           name: diskitrack-db
