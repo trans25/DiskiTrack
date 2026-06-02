@@ -14,6 +14,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const createApp = () => {
   const app = express();
 
+  // Render (and most PaaS hosts) put the app behind a reverse proxy. Trusting
+  // the first proxy hop lets express-rate-limit read the real client IP from
+  // the X-Forwarded-For header instead of throwing a validation error.
+  app.set('trust proxy', 1);
+
   app.use(
     helmet({
       // Allow <video> elements on the frontend origin to load uploaded files.
