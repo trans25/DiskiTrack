@@ -72,7 +72,13 @@ export default function Applications() {
     setProof({ open: true, club, loading: true });
     try {
       const { data } = await api.get(`/clubs/${club.id}/proof`);
-      setProof({ open: true, club, loading: false, ...data });
+      setProof({
+        open: true,
+        club,
+        loading: false,
+        document: data.proofDocument,
+        filename: data.proofFilename,
+      });
     } catch (err) {
       setProof(null);
       setError(err.response?.data?.error || 'Failed to load proof document');

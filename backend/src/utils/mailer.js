@@ -112,7 +112,7 @@ const baseTemplate = ({ title, intro, bodyHtml = '', actionUrl, actionLabel, not
 export const sendMail = async ({ to, subject, html, text }) => {
   const transport = getTransport();
   if (!transport) {
-    // eslint-disable-next-line no-console
+   
     console.log(
       `\n[mailer] SMTP not configured — email NOT sent.\n  To: ${to}\n  Subject: ${subject}\n  ${text || ''}\n`
     );
@@ -143,7 +143,7 @@ export const sendInviteEmail = async (user, link, inviter, clubName) =>
     subject: `You've been invited to join ${clubName} on DiskiTrack`,
     text: `Hi ${user.first_name}, you've been invited to join ${clubName} on DiskiTrack. Set your password to activate your account (link expires in 7 days): ${link}`,
     html: baseTemplate({
-      title: `Welcome, ${user.first_name}! 👋`,
+      title: `Welcome, ${user.first_name}!`,
       intro: `${inviter ? `${inviter} has invited you` : 'You have been invited'} to join <strong>${clubName}</strong> on DiskiTrack as a <strong>${user.role
         .replace('_', ' ')
         .toLowerCase()}</strong>.`,
@@ -151,7 +151,7 @@ export const sendInviteEmail = async (user, link, inviter, clubName) =>
         '<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#475569;">Click below to set your password and activate your account.</p>',
       actionUrl: link,
       actionLabel: 'Activate account',
-      note: '🔒 This invitation link expires in <strong>7 days</strong>. If it expires, ask your club admin to resend it.',
+      note: ' This invitation link expires in <strong>7 days</strong>. If it expires, ask your club admin to resend it.',
     }),
   });
 
