@@ -16,6 +16,7 @@ services:
     runtime: node
     plan: free
     rootDir: backend
+    branch: develop
     buildCommand: npm install
     startCommand: npm run setup-db && npm start
     healthCheckPath: /health
