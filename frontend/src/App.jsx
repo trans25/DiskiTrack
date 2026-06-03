@@ -20,6 +20,7 @@ import Announcements from './pages/Announcements.jsx';
 import Training from './pages/Training.jsx';
 import Standings from './pages/Standings.jsx';
 import Applications from './pages/Applications.jsx';
+import Reviews from './pages/Reviews.jsx';
 
 export default function App() {
   const { loading } = useAuth();
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/announcements" element={<Announcements />} />
         <Route path="/users" element={<ClubUsers />} />
         <Route path="/admin/applications" element={<Applications />} />
+        <Route path="/admin/reviews" element={<Reviews />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

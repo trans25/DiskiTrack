@@ -191,3 +191,10 @@ export const saveAttendanceSchema = z.object({
     )
     .max(60),
 });
+
+export const createReviewSchema = z.object({
+  name: z.string().min(2).max(120),
+  role: z.string().max(120).optional(),
+  rating: z.coerce.number().int().min(1).max(5),
+  comment: z.string().min(3).max(1000),
+});

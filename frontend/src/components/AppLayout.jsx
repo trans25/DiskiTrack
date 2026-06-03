@@ -29,6 +29,7 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import CampaignIcon from '@mui/icons-material/Campaign';
 import BadgeIcon from '@mui/icons-material/Badge';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Badge } from '@mui/material';
@@ -49,6 +50,7 @@ const navItems = [
   { label: 'Announcements', icon: <CampaignIcon />, path: '/announcements' },
   { label: 'Members', icon: <BadgeIcon />, path: '/users', roles: ['CLUB_ADMIN', 'SYSTEM_ADMIN'] },
   { label: 'Applications', icon: <VerifiedUserIcon />, path: '/admin/applications', roles: ['SYSTEM_ADMIN'] },
+  { label: 'Reviews', icon: <RateReviewIcon />, path: '/admin/reviews', roles: ['SYSTEM_ADMIN'] },
 ];
 
 export default function AppLayout() {

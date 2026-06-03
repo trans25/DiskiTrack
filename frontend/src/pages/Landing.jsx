@@ -25,6 +25,7 @@ import PlayCircleFilledWhiteIcon from '@mui/icons-material/PlayCircleFilledWhite
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useAuth } from '../context/AuthContext.jsx';
+import ReviewsSection from '../components/ReviewsSection.jsx';
 
 const features = [
   {
@@ -411,6 +412,11 @@ export default function Landing() {
           ))}
         </Grid>
       </Container>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Reviews / testimonials                                           */}
+      {/* ---------------------------------------------------------------- */}
+      <ReviewsSection />
 
       {/* ---------------------------------------------------------------- */}
       {/* Final call to action                                             */}

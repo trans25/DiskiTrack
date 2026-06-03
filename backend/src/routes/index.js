@@ -12,6 +12,7 @@ import announcementRoutes from './announcement.routes.js';
 import trainingRoutes from './training.routes.js';
 import coachRoutes from './coach.routes.js';
 import standingsRoutes from './standings.routes.js';
+import reviewRoutes from './review.routes.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { tenantIsolation } from '../middleware/tenantIsolation.js';
 
@@ -19,6 +20,7 @@ const router = Router();
 
 // Public
 router.use('/auth', authRoutes);
+router.use('/reviews', reviewRoutes);
 
 // Everything below requires a valid JWT and a resolved tenant context.
 router.use(authenticate, tenantIsolation);
