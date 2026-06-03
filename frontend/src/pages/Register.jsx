@@ -9,12 +9,14 @@ import {
   Typography,
   Grid,
   Box,
+  Autocomplete,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DescriptionIcon from '@mui/icons-material/Description';
 import { useAuth } from '../context/AuthContext.jsx';
 import AuthLayout from '../components/AuthLayout.jsx';
+import { COUNTRIES, citiesForCountry } from '../utils/geo.js';
 
 const MAX_PROOF_BYTES = 5 * 1024 * 1024; // 5 MB
 const ACCEPTED_PROOF =
@@ -76,7 +78,11 @@ export default function Register() {
       });
       setSubmitted(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          'Registration failed'
+      );
     } finally {
       setLoading(false);
     }
@@ -125,10 +131,36 @@ export default function Register() {
           <TextField label="Club name" value={form.clubName} onChange={set('clubName')} required fullWidth autoFocus />
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <TextField label="Country" value={form.country} onChange={set('country')} fullWidth />
+              <Autocomplete
+                freeSolo
+                autoHighlight
+                options={COUNTRIES}
+                value={form.country}
+                onChange={(e, v) =>
+                  setForm((f) => ({ ...f, country: v || '', city: '' }))
+                }
+                onInputChange={(e, v, reason) => {
+                  if (reason === 'input') setForm((f) => ({ ...f, country: v }));
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label="Country" fullWidth />
+                )}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField label="City" value={form.city} onChange={set('city')} fullWidth />
+              <Autocomplete
+                freeSolo
+                autoHighlight
+                options={citiesForCountry(form.country)}
+                value={form.city}
+                onChange={(e, v) => setForm((f) => ({ ...f, city: v || '' }))}
+                onInputChange={(e, v, reason) => {
+                  if (reason === 'input') setForm((f) => ({ ...f, city: v }));
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label="City" fullWidth />
+                )}
+              />
             </Grid>
           </Grid>
 

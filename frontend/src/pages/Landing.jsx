@@ -54,6 +54,16 @@ const features = [
     body: 'It even helps you keep track of where your team is in the standings, updated for you automatically.',
   },
   {
+    icon: <VerifiedUserIcon />,
+    title: 'Parents stay in the loop',
+    body: 'Players under 18 are registered with a parent or guardian. Guardians simply sign in with their child\u2019s ID number to follow their stats, charts and progress, all in a safe space built just for them.',
+  },
+  {
+    icon: <SpeedIcon />,
+    title: 'Find anything in seconds',
+    body: 'Every list, from players to teams to fixtures, comes with smart search that completes as you type, plus filters that help you get to exactly who and what you need.',
+  },
+  {
     icon: <SecurityIcon />,
     title: 'Safe and secure',
     body: 'DiskiTrack is safe and secure. Each club has its own private space, and only the right people can see the information.',
@@ -76,6 +86,10 @@ const roles = [
   {
     title: 'Analyst',
     body: 'This person looks at the numbers and helps make decisions.',
+  },
+  {
+    title: 'Parent / Guardian',
+    body: 'A parent or guardian of a young player signs in with their child\u2019s ID number to follow their stats, charts and club updates.',
   },
 ];
 
@@ -362,6 +376,99 @@ export default function Landing() {
                   </Grid>
                 ))}
               </Grid>
+            </Grid>
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* For parents & guardians                                          */}
+      {/* ---------------------------------------------------------------- */}
+      <Box sx={{ bgcolor: 'rgba(21,101,192,0.04)', py: { xs: 8, md: 10 } }}>
+        <Container maxWidth="lg">
+          <Grid container spacing={6} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <Typography variant="overline" color="primary" fontWeight={700} letterSpacing={1}>
+                For parents & guardians
+              </Typography>
+              <Typography variant="h3" fontWeight={800} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' }, mb: 2 }}>
+                Follow your child's journey
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+                Every player under 18 is registered with a parent or guardian, so
+                young players are always looked after. As a guardian, you do not
+                need a username or a password to remember. You simply sign in with
+                your child's ID number and you are in.
+              </Typography>
+              <Stack spacing={1.5}>
+                {[
+                  'Sign in with your child\u2019s ID number, no password needed',
+                  'See your child\u2019s stats and progress in clear charts',
+                  'Stay up to date with club news that matters to you',
+                  'A private, safe space that only shows your own child',
+                ].map((point) => (
+                  <Stack key={point} direction="row" spacing={1.5} alignItems="center">
+                    <CheckCircleIcon color="primary" fontSize="small" />
+                    <Typography variant="body2" fontWeight={600}>
+                      {point}
+                    </Typography>
+                  </Stack>
+                ))}
+              </Stack>
+              <Button
+                component={RouterLink}
+                to="/login"
+                variant="contained"
+                size="large"
+                endIcon={<ArrowForwardIcon />}
+                sx={{ mt: 4 }}
+              >
+                Guardian sign in
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Card sx={{ p: { xs: 3, md: 4 } }}>
+                <CardContent>
+                  <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
+                    <Box
+                      sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: 'rgba(21,101,192,0.08)',
+                        color: 'primary.main',
+                      }}
+                    >
+                      <VerifiedUserIcon />
+                    </Box>
+                    <Typography variant="h6" fontWeight={700}>
+                      Built around safeguarding
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.8, mb: 2 }}>
+                    When a club registers a young player, the parent or guardian
+                    is captured at the same time. We check the ID number against
+                    the club's own records, so only the right person can see a
+                    child's information. Nothing about your child is shared with
+                    anyone outside your club.
+                  </Typography>
+                  <Stack spacing={1}>
+                    {['Guardian linked at registration', 'ID checked against the club database', 'Only your own child is visible'].map(
+                      (point) => (
+                        <Stack key={point} direction="row" spacing={1.5} alignItems="center">
+                          <CheckCircleIcon color="primary" fontSize="small" />
+                          <Typography variant="body2" fontWeight={600}>
+                            {point}
+                          </Typography>
+                        </Stack>
+                      )
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
             </Grid>
           </Grid>
         </Container>

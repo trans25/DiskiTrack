@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { Button, TextField, Alert, Stack, Link, Typography } from '@mui/material';
+import { Button, TextField, Alert, Stack, Link, Typography, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { useAuth } from '../context/AuthContext.jsx';
 import AuthLayout from '../components/AuthLayout.jsx';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, guardianLogin } = useAuth();
   const navigate = useNavigate();
+  const [mode, setMode] = useState('user');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [childId, setChildId] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +19,11 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      if (mode === 'guardian') {
+        await guardianLogin(childId.trim());
+      } else {
+        await login(email, password);
+      }
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
@@ -30,34 +36,71 @@ export default function Login() {
     <AuthLayout subtitle="Live football analytics">
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        color="primary"
+        value={mode}
+        onChange={(e, v) => {
+          if (v) {
+            setMode(v);
+            setError('');
+          }
+        }}
+        fullWidth
+        sx={{ mb: 2 }}
+      >
+        <ToggleButton value="user">Club member</ToggleButton>
+        <ToggleButton value="guardian">Parent / Guardian</ToggleButton>
+      </ToggleButtonGroup>
+
       <form onSubmit={handleSubmit}>
-        <Stack spacing={2}>
-          <TextField
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            fullWidth
-            autoFocus
-          />
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            fullWidth
-          />
-          <Stack direction="row" justifyContent="flex-end">
-            <Link component={RouterLink} to="/forgot-password" variant="body2" underline="hover">
-              Forgot password?
-            </Link>
+        {mode === 'guardian' ? (
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              Enter your child's ID number to sign in and follow their stats.
+            </Typography>
+            <TextField
+              label="Child's ID number"
+              value={childId}
+              onChange={(e) => setChildId(e.target.value)}
+              required
+              fullWidth
+              autoFocus
+            />
+            <Button type="submit" size="large" disabled={loading} fullWidth>
+              {loading ? 'Signing in…' : 'Sign In'}
+            </Button>
           </Stack>
-          <Button type="submit" size="large" disabled={loading} fullWidth>
-            {loading ? 'Signing in…' : 'Sign In'}
-          </Button>
-        </Stack>
+        ) : (
+          <Stack spacing={2}>
+            <TextField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              fullWidth
+              autoFocus
+            />
+            <TextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              fullWidth
+            />
+            <Stack direction="row" justifyContent="flex-end">
+              <Link component={RouterLink} to="/forgot-password" variant="body2" underline="hover">
+                Forgot password?
+              </Link>
+            </Stack>
+            <Button type="submit" size="large" disabled={loading} fullWidth>
+              {loading ? 'Signing in…' : 'Sign In'}
+            </Button>
+          </Stack>
+        )}
       </form>
 
       <Typography variant="body2" textAlign="center" color="text.secondary" sx={{ mt: 3 }}>

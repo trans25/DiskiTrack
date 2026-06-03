@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -23,8 +23,11 @@ import {
   Avatar,
   Alert,
   Snackbar,
+  Autocomplete,
+  InputAdornment,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -46,6 +49,7 @@ export default function ClubUsers() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [inviteLink, setInviteLink] = useState('');
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -98,17 +102,79 @@ export default function ClubUsers() {
   // SYSTEM_ADMIN does not belong to a tenant, so they only see club admins.
   const clubAdmins = users.filter((x) => x.role === 'CLUB_ADMIN');
 
+  // Shared text search across the current listing.
+  const q = search.trim().toLowerCase();
+  const matchUser = (x) =>
+    !q ||
+    `${x.firstName} ${x.lastName}`.toLowerCase().includes(q) ||
+    (x.email || '').toLowerCase().includes(q);
+  const matchPlayer = (p) =>
+    !q ||
+    `${p.firstName} ${p.lastName}`.toLowerCase().includes(q) ||
+    (p.position || '').toLowerCase().includes(q);
+
+  const filteredClubAdmins = clubAdmins.filter(matchUser);
+  const filteredStaff = users.filter((x) => x.role !== 'GUARDIAN').filter(matchUser);
+  const filteredGuardians = users.filter((x) => x.role === 'GUARDIAN').filter(matchUser);
+  const filteredPlayers = players.filter(matchPlayer);
+
+  // Autocomplete suggestions based on the active tab.
+  const searchOptions = useMemo(() => {
+    const names = new Set();
+    if (isSystemAdmin) {
+      clubAdmins.forEach((x) => names.add(`${x.firstName} ${x.lastName}`));
+    } else if (tab === 2) {
+      players.forEach((p) => names.add(`${p.firstName} ${p.lastName}`));
+    } else {
+      users.forEach((x) => names.add(`${x.firstName} ${x.lastName}`));
+    }
+    return Array.from(names);
+  }, [users, players, clubAdmins, tab, isSystemAdmin]);
+
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+        spacing={1.5}
+        mb={2}
+      >
         <Typography variant="h5" fontWeight={700}>
           {isSystemAdmin ? 'Club Admins' : 'Club Members'}
         </Typography>
-        {canManage && tab === 0 && (
-          <Button startIcon={<AddIcon />} onClick={() => setOpen(true)}>
-            Invite User
-          </Button>
-        )}
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Autocomplete
+            freeSolo
+            size="small"
+            options={searchOptions}
+            inputValue={search}
+            onInputChange={(e, v) => setSearch(v)}
+            sx={{ minWidth: 220 }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search members"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+          />
+          {canManage && tab === 0 && (
+            <Button startIcon={<AddIcon />} onClick={() => setOpen(true)}>
+              Invite User
+            </Button>
+          )}
+        </Stack>
       </Stack>
 
       {inviteLink && (
@@ -134,7 +200,7 @@ export default function ClubUsers() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {clubAdmins.map((x) => (
+                {filteredClubAdmins.map((x) => (
                   <TableRow key={x.id} hover>
                     <TableCell>
                       {x.firstName} {x.lastName}
@@ -171,8 +237,7 @@ export default function ClubUsers() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users
-                  .filter((x) => x.role !== 'GUARDIAN')
+                {filteredStaff
                   .map((x) => (
                     <TableRow key={x.id} hover>
                       <TableCell>
@@ -217,8 +282,7 @@ export default function ClubUsers() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users
-                  .filter((x) => x.role === 'GUARDIAN')
+                {filteredGuardians
                   .map((x) => (
                     <TableRow key={x.id} hover>
                       <TableCell>
@@ -247,7 +311,7 @@ export default function ClubUsers() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {players.map((p) => (
+                {filteredPlayers.map((p) => (
                   <TableRow key={p.id} hover>
                     <TableCell>
                       <Stack direction="row" spacing={1} alignItems="center">

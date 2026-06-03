@@ -18,18 +18,28 @@ import {
   IconButton,
   Divider,
   Avatar,
+  Snackbar,
+  Autocomplete,
+  InputAdornment,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import GroupsIcon from '@mui/icons-material/Groups';
+import SearchIcon from '@mui/icons-material/Search';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import TeamOverviewDialog from '../components/TeamOverviewDialog.jsx';
-
-const AGE_GROUPS = ['U13', 'U14', 'U15', 'U16', 'U17', 'U19', 'SENIOR'];
-const CATEGORIES = ['BOYS', 'GIRLS', 'MEN', 'WOMEN'];
+import {
+  AGE_GROUP_OPTIONS,
+  CATEGORY_OPTIONS,
+  ageGroupLabel,
+  categoryLabel,
+  suggestCategory,
+  suggestTeamName,
+  teamSummary,
+} from '../utils/football.js';
 
 const emptyForm = { id: null, name: '', ageGroup: 'U13', category: 'BOYS', clubId: '' };
 
@@ -44,6 +54,14 @@ export default function Teams() {
   const [clubs, setClubs] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  // Track whether the admin typed their own name so we stop auto-suggesting.
+  const [nameTouched, setNameTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState('');
+
+  // Search + filter for the team/club listing.
+  const [search, setSearch] = useState('');
+  const [ageFilter, setAgeFilter] = useState('ALL');
 
   // Club create/edit (SYSTEM_ADMIN only). New clubs also bootstrap a Club Admin.
   const [clubOpen, setClubOpen] = useState(false);
@@ -77,8 +95,17 @@ export default function Teams() {
 
   // Group teams by club so each club gets its own card.
   const groups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filteredTeams = teams.filter((t) => {
+      if (ageFilter !== 'ALL' && t.ageGroup !== ageFilter) return false;
+      if (!q) return true;
+      return (
+        (t.name || '').toLowerCase().includes(q) ||
+        (t.clubName || '').toLowerCase().includes(q)
+      );
+    });
     const map = new Map();
-    for (const t of teams) {
+    for (const t of filteredTeams) {
       const key = t.clubId || 'unknown';
       if (!map.has(key)) {
         map.set(key, {
@@ -91,6 +118,22 @@ export default function Teams() {
       map.get(key).teams.push(t);
     }
     return Array.from(map.values());
+  }, [teams, search, ageFilter]);
+
+  // Distinct age groups present, for the filter dropdown.
+  const ageOptions = useMemo(() => {
+    const set = new Set(teams.map((t) => t.ageGroup).filter(Boolean));
+    return Array.from(set);
+  }, [teams]);
+
+  // Name suggestions for the autocomplete search.
+  const searchOptions = useMemo(() => {
+    const set = new Set();
+    for (const t of teams) {
+      if (t.name) set.add(t.name);
+      if (t.clubName) set.add(t.clubName);
+    }
+    return Array.from(set);
   }, [teams]);
 
   const detailClub = useMemo(
@@ -99,11 +142,16 @@ export default function Teams() {
   );
 
   const openCreate = () => {
-    setForm({ ...emptyForm, clubId: isSystemAdmin ? '' : '' });
+    setNameTouched(false);
+    setForm({
+      ...emptyForm,
+      name: suggestTeamName(emptyForm.ageGroup, emptyForm.category),
+    });
     setOpen(true);
   };
 
   const openEdit = (t) => {
+    setNameTouched(true);
     setForm({
       id: t.id,
       name: t.name,
@@ -114,17 +162,52 @@ export default function Teams() {
     setOpen(true);
   };
 
+  // When age group changes, keep the category sensible (youth<->senior) and,
+  // unless the admin has typed a custom name, refresh the suggested name.
+  const handleAgeGroupChange = (ageGroup) => {
+    const category = suggestCategory(ageGroup, form.category);
+    setForm((f) => ({
+      ...f,
+      ageGroup,
+      category,
+      name: nameTouched ? f.name : suggestTeamName(ageGroup, category),
+    }));
+  };
+
+  const handleCategoryChange = (category) => {
+    setForm((f) => ({
+      ...f,
+      category,
+      name: nameTouched ? f.name : suggestTeamName(f.ageGroup, category),
+    }));
+  };
+
+  const handleNameChange = (name) => {
+    setNameTouched(true);
+    setForm((f) => ({ ...f, name }));
+  };
+
   // Club Admins manage teams within their own club (tenant from their JWT).
   const handleSave = async () => {
-    const payload = { name: form.name, ageGroup: form.ageGroup, category: form.category };
-    if (form.id) {
-      await api.patch(`/teams/${form.id}`, payload);
-    } else {
-      await api.post('/teams', payload);
+    setSaving(true);
+    try {
+      const payload = { name: form.name.trim(), ageGroup: form.ageGroup, category: form.category };
+      if (form.id) {
+        await api.patch(`/teams/${form.id}`, payload);
+        setToast(`Team "${payload.name}" updated.`);
+      } else {
+        await api.post('/teams', payload);
+        setToast(`Team "${payload.name}" created.`);
+      }
+      setOpen(false);
+      setForm(emptyForm);
+      setNameTouched(false);
+      load();
+    } catch (err) {
+      setToast(err.response?.data?.error || 'Could not save the team. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    setOpen(false);
-    setForm(emptyForm);
-    load();
   };
 
   const handleDelete = async (t) => {
@@ -210,7 +293,13 @@ export default function Teams() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        spacing={1.5}
+        mb={3}
+      >
         <Box>
           <Typography variant="h5" fontWeight={700}>
             Teams
@@ -219,14 +308,51 @@ export default function Teams() {
             {canManageClubs ? 'Manage clubs and their first administrators.' : 'Manage the teams in your club.'}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1.5}>
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Autocomplete
+            freeSolo
+            size="small"
+            options={searchOptions}
+            inputValue={search}
+            onInputChange={(e, v) => setSearch(v)}
+            sx={{ minWidth: 200 }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search teams or clubs"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+          />
+          <TextField
+            size="small"
+            select
+            value={ageFilter}
+            onChange={(e) => setAgeFilter(e.target.value)}
+            sx={{ minWidth: 150 }}
+          >
+            <MenuItem value="ALL">All age groups</MenuItem>
+            {ageOptions.map((a) => (
+              <MenuItem key={a} value={a}>{ageGroupLabel(a)}</MenuItem>
+            ))}
+          </TextField>
           {canManageClubs && (
             <Button variant="contained" startIcon={<ApartmentIcon />} onClick={openClubCreate}>
               New Club
             </Button>
           )}
           {canManageTeams && (
-            <Button startIcon={<AddIcon />} onClick={openCreate}>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
               New Team
             </Button>
           )}
@@ -295,7 +421,7 @@ export default function Teams() {
                   {g.teams.length > 0 && (
                     <Stack direction="row" spacing={0.75} mt={1.5} flexWrap="wrap" useFlexGap>
                       {g.teams.slice(0, 3).map((t) => (
-                        <Chip key={t.id} label={t.ageGroup} color="primary" size="small" />
+                        <Chip key={t.id} label={ageGroupLabel(t.ageGroup)} color="primary" size="small" />
                       ))}
                       {g.teams.length > 3 && (
                         <Chip label={`+${g.teams.length - 3}`} variant="outlined" size="small" />
@@ -309,9 +435,22 @@ export default function Teams() {
         ))}
         {groups.length === 0 && (
           <Grid item xs={12}>
-            <Typography variant="body2" color="text.secondary">
-              No teams yet.
-            </Typography>
+            <Card variant="outlined" sx={{ textAlign: 'center', py: 6, px: 2, borderStyle: 'dashed' }}>
+              <GroupsIcon sx={{ fontSize: 48, color: 'primary.light', mb: 1 }} />
+              <Typography variant="h6" fontWeight={700}>
+                {canManageTeams ? 'Set up your first team' : 'No teams yet'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 420, mx: 'auto', mt: 0.5 }}>
+                {canManageTeams
+                  ? 'Create a team for each age group your club runs \u2014 from mini football right up to your senior side.'
+                  : 'Teams will appear here once they have been added.'}
+              </Typography>
+              {canManageTeams && (
+                <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ mt: 2.5 }}>
+                  New Team
+                </Button>
+              )}
+            </Card>
           </Grid>
         )}
       </Grid>
@@ -414,8 +553,8 @@ export default function Teams() {
                               )}
                             </Stack>
                             <Stack direction="row" spacing={0.75} mt={1}>
-                              <Chip label={t.ageGroup} color="primary" size="small" />
-                              <Chip label={t.category} variant="outlined" size="small" />
+                              <Chip label={ageGroupLabel(t.ageGroup)} color="primary" size="small" />
+                              <Chip label={categoryLabel(t.category)} variant="outlined" size="small" />
                             </Stack>
                           </CardContent>
                         </CardActionArea>
@@ -445,53 +584,130 @@ export default function Teams() {
         onClose={() => setOverviewTeamId(null)}
       />
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>{form.id ? 'Edit Team' : 'Create Team'}</DialogTitle>
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ pb: 0.5 }}>
+          {form.id ? 'Edit team' : 'Create a new team'}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {form.id
+              ? 'Update this team\u2019s details.'
+              : 'Pick the age group and category. We\u2019ll suggest a name you can keep or change.'}
+          </Typography>
+        </DialogTitle>
         <DialogContent>
-          <Stack spacing={2} mt={1}>
-            <TextField
-              label="Team name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              fullWidth
-            />
+          <Stack spacing={2.5} mt={2}>
             <TextField
               select
               label="Age group"
               value={form.ageGroup}
-              onChange={(e) => setForm({ ...form, ageGroup: e.target.value })}
+              onChange={(e) => handleAgeGroupChange(e.target.value)}
               fullWidth
+              helperText="From mini football through to senior and reserve sides."
             >
-              {AGE_GROUPS.map((a) => (
-                <MenuItem key={a} value={a}>
-                  {a}
+              {AGE_GROUP_OPTIONS.map((a) => (
+                <MenuItem key={a.value} value={a.value}>
+                  {a.label}
                 </MenuItem>
               ))}
             </TextField>
+
+            <Box>
+              <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                Category
+              </Typography>
+              <Grid container spacing={1}>
+                {CATEGORY_OPTIONS.map((c) => {
+                  const selected = form.category === c.value;
+                  return (
+                    <Grid item xs={6} sm={3} key={c.value}>
+                      <Card
+                        variant="outlined"
+                        sx={{
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          py: 1.25,
+                          borderColor: selected ? 'primary.main' : 'divider',
+                          borderWidth: selected ? 2 : 1,
+                          bgcolor: selected ? 'primary.50' : 'background.paper',
+                          transition: 'all 120ms ease',
+                          '&:hover': { borderColor: 'primary.light' },
+                        }}
+                        onClick={() => handleCategoryChange(c.value)}
+                      >
+                        <Typography
+                          variant="body2"
+                          fontWeight={selected ? 700 : 500}
+                          color={selected ? 'primary.main' : 'text.primary'}
+                        >
+                          {c.label}
+                        </Typography>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
+
             <TextField
-              select
-              label="Category"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              label="Team name"
+              value={form.name}
+              onChange={(e) => handleNameChange(e.target.value)}
               fullWidth
+              helperText={
+                nameTouched
+                  ? 'This is how the team appears across the club.'
+                  : 'Suggested for you \u2014 edit it if your club uses a different name.'
+              }
+            />
+
+            <Box
+              sx={{
+                borderRadius: 2,
+                bgcolor: 'background.default',
+                border: '1px dashed',
+                borderColor: 'divider',
+                p: 1.75,
+              }}
             >
-              {CATEGORIES.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {c}
-                </MenuItem>
-              ))}
-            </TextField>
+              <Typography variant="caption" color="text.secondary">
+                Preview
+              </Typography>
+              <Stack direction="row" spacing={1.25} alignItems="center" mt={0.75}>
+                <Avatar variant="rounded" sx={{ bgcolor: 'primary.main', width: 36, height: 36, borderRadius: 2 }}>
+                  <GroupsIcon sx={{ fontSize: 18 }} />
+                </Avatar>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="subtitle2" fontWeight={700} noWrap>
+                    {form.name || suggestTeamName(form.ageGroup, form.category)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {teamSummary(form.ageGroup, form.category)}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Box>
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button variant="text" onClick={() => setOpen(false)}>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="text" onClick={() => setOpen(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!form.name}>
-            {form.id ? 'Save' : 'Create'}
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={!form.name.trim() || saving}
+          >
+            {saving ? 'Saving\u2026' : form.id ? 'Save changes' : 'Create team'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={3000}
+        onClose={() => setToast('')}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
 
       {/* Create / edit club (tenant) */}
       <Dialog open={clubOpen} onClose={() => setClubOpen(false)} fullWidth maxWidth="xs">

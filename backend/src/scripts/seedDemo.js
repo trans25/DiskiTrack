@@ -23,6 +23,30 @@ const PW_HASH = '$2a$10$Rdnoma3fR5/YTDsAHeoZKeqwAEJyhCzsuaGVyiNgp0zHlU6d4WOeu';
 
 const rnd = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = (arr) => arr[rnd(0, arr.length - 1)];
+
+// Generate a realistic contract for a demo player. Most are on multi-year deals;
+// some are in their final year (expiring) and a slice have already been renewed.
+function makeContract() {
+  const yearsAgo = rnd(0, 3);
+  const start = new Date();
+  start.setFullYear(start.getFullYear() - yearsAgo);
+  start.setMonth(rnd(0, 11), 1);
+
+  const termYears = rnd(1, 4);
+  const end = new Date(start);
+  end.setFullYear(start.getFullYear() + termYears);
+
+  // ~30% of squad has had at least one renewal.
+  const renewed = Math.random() < 0.3;
+  const renewals = renewed ? rnd(1, 2) : 0;
+  const renewedAt = renewed
+    ? new Date(start.getTime() + rnd(30, 300) * 86400000).toISOString()
+    : null;
+
+  const iso = (d) => d.toISOString().slice(0, 10);
+  return { start: iso(start), end: iso(end), renewals, renewedAt };
+}
+
 const splitName = (full) => {
   const parts = full.trim().split(' ');
   return { first: parts[0], last: parts.slice(1).join(' ') || parts[0] };
@@ -187,10 +211,11 @@ async function insertNamedSquad(tenantId, teamId, squad, meta) {
     const age = pos === 'GK' ? rnd(22, 34) : rnd(18, 33);
     const dob = `${2025 - age}-0${rnd(1, 9)}-${String(rnd(1, 28)).padStart(2, '0')}`;
     const photo = playerPhotoDataUri(full, meta.bg, meta.color);
+    const c = makeContract();
     const r = await query(
-      `INSERT INTO players (tenant_id, team_id, first_name, last_name, date_of_birth, position, jersey_number, photo_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-      [tenantId, teamId, first, last, dob, pos, num, photo]
+      `INSERT INTO players (tenant_id, team_id, first_name, last_name, date_of_birth, position, jersey_number, photo_url, contract_start, contract_end, contract_renewals, contract_renewed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [tenantId, teamId, first, last, dob, pos, num, photo, c.start, c.end, c.renewals, c.renewedAt]
     );
     ids.push({ id: r.rows[0].id, num, pos, name: full });
   }
@@ -210,10 +235,11 @@ async function insertGeneratedSquad(tenantId, teamId, count, firstPool, ageBase,
     const dob = `${ageBase - rnd(0, 1)}-0${rnd(1, 9)}-${String(rnd(1, 28)).padStart(2, '0')}`;
     const full = `${first} ${last}`;
     const photo = playerPhotoDataUri(full, meta.bg, meta.color);
+    const c = makeContract();
     const r = await query(
-      `INSERT INTO players (tenant_id, team_id, first_name, last_name, date_of_birth, position, jersey_number, photo_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-      [tenantId, teamId, first, last, dob, pos, num, photo]
+      `INSERT INTO players (tenant_id, team_id, first_name, last_name, date_of_birth, position, jersey_number, photo_url, contract_start, contract_end, contract_renewals, contract_renewed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [tenantId, teamId, first, last, dob, pos, num, photo, c.start, c.end, c.renewals, c.renewedAt]
     );
     ids.push({ id: r.rows[0].id, num, pos, name: full });
   }

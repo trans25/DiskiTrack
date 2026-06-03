@@ -1,3 +1,4 @@
+
 -- =====================================================================
 -- DiskiTrack — PostgreSQL schema
 -- Multi-tenant football analytics & live match tracking
@@ -17,7 +18,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DO $$
 BEGIN
 	CREATE TYPE user_role AS ENUM
-		('SYSTEM_ADMIN', 'CLUB_ADMIN', 'COACH', 'ANALYST', 'GUARDIAN');
+		('SYSTEM_ADMIN', 'CLUB_ADMIN', 'COACH', 'ANALYST', 'GUARDIAN', 'PLAYER');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$
@@ -164,16 +165,28 @@ CREATE TABLE IF NOT EXISTS players (
 	first_name    VARCHAR(120) NOT NULL,
 	last_name     VARCHAR(120) NOT NULL,
 	date_of_birth DATE,
+	-- Identity & contact (a club registers players against an ID + email).
+	id_number     VARCHAR(40),
+	email         VARCHAR(255),
+	-- Optional self-service login account for the player.
+	user_id       UUID REFERENCES users(id) ON DELETE SET NULL,
 	position      VARCHAR(40),
 	jersey_number SMALLINT,
 	photo_url     TEXT,
 	is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+	-- Contract lifecycle (the way a club tracks a player's deal).
+	contract_start      DATE,
+	contract_end        DATE,
+	contract_renewals   SMALLINT NOT NULL DEFAULT 0,
+	contract_renewed_at TIMESTAMPTZ,
 	created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
 	updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_players_tenant_id ON players(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_players_team_id   ON players(team_id);
+CREATE INDEX IF NOT EXISTS idx_players_tenant_id   ON players(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_players_team_id     ON players(team_id);
+CREATE INDEX IF NOT EXISTS idx_players_user_id     ON players(user_id);
+CREATE INDEX IF NOT EXISTS idx_players_contract_end ON players(contract_end);
 
 DROP TRIGGER IF EXISTS trg_players_updated ON players;
 CREATE TRIGGER trg_players_updated
@@ -435,3 +448,59 @@ DROP TRIGGER IF EXISTS trg_training_attendance_updated ON training_attendance;
 CREATE TRIGGER trg_training_attendance_updated
 	BEFORE UPDATE ON training_attendance
 	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------
+-- player_documents (ID copies, registration forms, medicals — base64)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS player_documents (
+	id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	tenant_id    UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+	player_id    UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+	doc_type     VARCHAR(40) NOT NULL DEFAULT 'OTHER',
+	file_name    VARCHAR(255),
+	file_data    TEXT NOT NULL,
+	uploaded_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+	created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+	updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_player_documents_tenant_id ON player_documents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_player_documents_player_id ON player_documents(player_id);
+
+DROP TRIGGER IF EXISTS trg_player_documents_updated ON player_documents;
+CREATE TRIGGER trg_player_documents_updated
+	BEFORE UPDATE ON player_documents
+	FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------
+-- club_messages (coach broadcast / targeted email log)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS club_messages (
+	id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	tenant_id    UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+	sender_id    UUID REFERENCES users(id) ON DELETE SET NULL,
+	subject      VARCHAR(200) NOT NULL,
+	body         TEXT NOT NULL,
+	audience     VARCHAR(30) NOT NULL DEFAULT 'CUSTOM',
+	team_id      UUID REFERENCES teams(id) ON DELETE SET NULL,
+	match_id     UUID REFERENCES matches(id) ON DELETE SET NULL,
+	recipient_count SMALLINT NOT NULL DEFAULT 0,
+	created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_club_messages_tenant_id ON club_messages(tenant_id);
+
+-- ---------------------------------------------------------------------
+-- match_callups (the travelling squad for a fixture)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS match_callups (
+	id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	tenant_id    UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+	match_id     UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+	player_id    UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+	created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+	CONSTRAINT uq_match_callup UNIQUE (match_id, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_callups_tenant_id ON match_callups(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_match_callups_match_id  ON match_callups(match_id);

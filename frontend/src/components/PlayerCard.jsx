@@ -1,5 +1,11 @@
 import { Box, Typography } from '@mui/material';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import { getPlayerCard } from '../utils/playerCard.js';
+import {
+  ageGroupShort,
+  contractLabel,
+  contractColor,
+} from '../utils/football.js';
 
 // Position accent colors (clean, modern palette).
 const POS_COLORS = {
@@ -23,6 +29,10 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
   const accent = POS_COLORS[position] || '#6366f1';
   const ring = ratingColor(overall);
   const fullName = `${player.firstName || ''} ${player.lastName || ''}`.trim();
+  const ageGroup = ageGroupShort(player.ageGroup);
+  const contractText = contractLabel(player.contract);
+  const contractC = contractColor(player.contract);
+  const renewals = player.contractRenewals || 0;
 
   const bars = [
     ['PAC', attrs.pac],
@@ -135,9 +145,37 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
 
       {/* Name + meta */}
       <Box sx={{ textAlign: 'center', px: 1.5, pt: 1 }}>
-        <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2 }} noWrap>
-          {fullName || '—'}
-        </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
+            minWidth: 0,
+          }}
+        >
+          <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2 }} noWrap>
+            {fullName || '—'}
+          </Typography>
+          {ageGroup && (
+            <Box
+              component="span"
+              sx={{
+                flexShrink: 0,
+                px: 0.6,
+                py: 0.1,
+                borderRadius: 1,
+                bgcolor: 'rgba(15,23,42,0.06)',
+                color: 'text.secondary',
+                fontWeight: 700,
+                fontSize: 10,
+                letterSpacing: 0.3,
+              }}
+            >
+              {ageGroup}
+            </Box>
+          )}
+        </Box>
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
           <Box
             component="span"
@@ -158,6 +196,37 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
             <Typography variant="caption" color="text.secondary" fontWeight={600}>
               #{player.jerseyNumber}
             </Typography>
+          )}
+        </Box>
+
+        {/* Contract status: years left + renewed indicator */}
+        <Box
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.5,
+            mt: 0.6,
+            px: 0.9,
+            py: 0.25,
+            borderRadius: 1,
+            bgcolor: contractC.bg,
+            color: contractC.fg,
+          }}
+        >
+          <Typography sx={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.2 }}>
+            {contractText}
+          </Typography>
+          {renewals > 0 && (
+            <Box
+              component="span"
+              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}
+              title={`Renewed ${renewals} time${renewals === 1 ? '' : 's'}`}
+            >
+              <VerifiedIcon sx={{ fontSize: 12 }} />
+              <Typography sx={{ fontSize: 10, fontWeight: 800 }}>
+                {renewals > 1 ? `×${renewals}` : 'Renewed'}
+              </Typography>
+            </Box>
           )}
         </Box>
       </Box>

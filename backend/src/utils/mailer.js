@@ -219,3 +219,51 @@ export const sendApplicationRejectedEmail = async (user, clubName, reason) =>
       note: 'If you believe this was a mistake or can provide additional proof, please reply to this email or register again with the correct documentation.',
     }),
   });
+
+// --- Club messaging --------------------------------------------------
+
+// Escape user-entered text and keep line breaks for the HTML body.
+const escapeHtml = (s = '') =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br/>');
+
+// Generic club/coach message to a single recipient.
+export const sendClubMessageEmail = async ({ to, recipientName, clubName, subject, body, senderName }) =>
+  sendMail({
+    to,
+    subject,
+    text: `${body}\n\n— ${senderName || clubName}`,
+    html: baseTemplate({
+      title: subject,
+      intro: recipientName ? `Hi ${recipientName},` : `Hi,`,
+      bodyHtml: `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#475569;">${escapeHtml(body)}</p>
+        <p style="margin:16px 0 0 0;font-size:14px;color:#94a3b8;">Sent by ${escapeHtml(senderName || 'your club')} · ${escapeHtml(clubName || 'DiskiTrack')}</p>`,
+    }),
+  });
+
+// Matchday call-up alert: tells a squad member they are travelling to a fixture.
+export const sendCallupEmail = async ({ to, recipientName, clubName, fixture, venue, kickoff, note, senderName }) =>
+  sendMail({
+    to,
+    subject: `Matchday call-up: ${fixture}`,
+    text: `Hi ${recipientName || ''}, you've been called up for ${fixture}${venue ? ' at ' + venue : ''}${kickoff ? ' (' + kickoff + ')' : ''}. ${note || ''}`,
+    html: baseTemplate({
+      title: `You're in the squad! ⚽`,
+      intro: recipientName ? `Hi ${recipientName},` : 'Hi,',
+      bodyHtml: `
+        <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#475569;">You've been selected in the travelling squad for the upcoming fixture. Please confirm your availability with your coach.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:10px;margin:0 0 16px 0;">
+          <tr><td style="padding:14px 16px;font-size:14px;line-height:1.7;color:#0f172a;">
+            <strong>Fixture:</strong> ${escapeHtml(fixture)}<br/>
+            ${venue ? `<strong>Venue:</strong> ${escapeHtml(venue)}<br/>` : ''}
+            ${kickoff ? `<strong>Kick-off:</strong> ${escapeHtml(kickoff)}<br/>` : ''}
+          </td></tr>
+        </table>
+        ${note ? `<p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#475569;">${escapeHtml(note)}</p>` : ''}
+        <p style="margin:16px 0 0 0;font-size:14px;color:#94a3b8;">— ${escapeHtml(senderName || clubName || 'Your coach')}</p>`,
+      note: '🚍 Be on time for departure. Bring your kit and ID.',
+    }),
+  });

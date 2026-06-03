@@ -5,6 +5,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from './theme.js';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { AnnouncementsProvider } from './context/AnnouncementsContext.jsx';
+import { NotificationsProvider } from './context/NotificationsContext.jsx';
 import App from './App.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -14,7 +15,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <AuthProvider>
           <AnnouncementsProvider>
-            <App />
+            <NotificationsProvider>
+              <App />
+            </NotificationsProvider>
           </AnnouncementsProvider>
         </AuthProvider>
       </BrowserRouter>

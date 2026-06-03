@@ -59,6 +59,22 @@ export const createApp = () => {
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
+  // Stricter limiter for the auth surface to slow brute-force/credential
+  // stuffing. `skipSuccessfulRequests` means only FAILED attempts count, so
+  // legitimate logins, registrations and session checks (/auth/me) are never
+  // penalised — only repeated failures trip the limit.
+  app.use(
+    ['/api/auth/login', '/api/auth/guardian-login', '/api/auth/forgot-password'],
+    rateLimit({
+      windowMs: 15 * 60_000,
+      max: 20,
+      skipSuccessfulRequests: true,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too many attempts. Please try again later.' },
+    })
+  );
+
   app.use('/api', apiRoutes);
 
   app.use(notFoundHandler);

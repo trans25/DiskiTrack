@@ -32,9 +32,13 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LogoutIcon from '@mui/icons-material/Logout';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
 import { Badge } from '@mui/material';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useAnnouncements } from '../context/AnnouncementsContext.jsx';
+import NotificationBell from './NotificationBell.jsx';
 
 const drawerWidth = 240;
 
@@ -49,6 +53,9 @@ const navItems = [
   { label: 'Analytics', icon: <InsightsIcon />, path: '/analytics', roles: ['SYSTEM_ADMIN', 'CLUB_ADMIN', 'COACH', 'ANALYST'] },
   { label: 'Announcements', icon: <CampaignIcon />, path: '/announcements' },
   { label: 'Members', icon: <BadgeIcon />, path: '/users', roles: ['CLUB_ADMIN', 'SYSTEM_ADMIN'] },
+  { label: 'Billing', icon: <CreditCardIcon />, path: '/billing', roles: ['CLUB_ADMIN'] },
+  { label: 'Privacy', icon: <PrivacyTipIcon />, path: '/privacy' },
+  { label: 'Audit Log', icon: <FactCheckIcon />, path: '/admin/audit', roles: ['CLUB_ADMIN', 'SYSTEM_ADMIN'] },
   { label: 'Applications', icon: <VerifiedUserIcon />, path: '/admin/applications', roles: ['SYSTEM_ADMIN'] },
   { label: 'Reviews', icon: <RateReviewIcon />, path: '/admin/reviews', roles: ['SYSTEM_ADMIN'] },
 ];
@@ -116,6 +123,7 @@ export default function AppLayout() {
           <Avatar sx={{ bgcolor: 'primary.dark', width: 32, height: 32, mr: 1 }}>
             {user?.firstName?.[0]}
           </Avatar>
+          <NotificationBell />
           <Button color="inherit" startIcon={<LogoutIcon />} onClick={logout}>
             {!isMobile && 'Logout'}
           </Button>

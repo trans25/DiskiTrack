@@ -13,6 +13,11 @@ import trainingRoutes from './training.routes.js';
 import coachRoutes from './coach.routes.js';
 import standingsRoutes from './standings.routes.js';
 import reviewRoutes from './review.routes.js';
+import messageRoutes from './message.routes.js';
+import notificationRoutes from './notification.routes.js';
+import billingRoutes from './billing.routes.js';
+import privacyRoutes from './privacy.routes.js';
+import auditRoutes from './audit.routes.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { tenantIsolation } from '../middleware/tenantIsolation.js';
 
@@ -37,5 +42,10 @@ router.use('/announcements', announcementRoutes);
 router.use('/training', trainingRoutes);
 router.use('/coach', coachRoutes);
 router.use('/standings', standingsRoutes);
+router.use('/messages', messageRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/billing', billingRoutes);
+router.use('/privacy', privacyRoutes);
+router.use('/audit', auditRoutes);
 
 export default router;

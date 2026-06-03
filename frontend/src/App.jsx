@@ -21,6 +21,9 @@ import Training from './pages/Training.jsx';
 import Standings from './pages/Standings.jsx';
 import Applications from './pages/Applications.jsx';
 import Reviews from './pages/Reviews.jsx';
+import Billing from './pages/Billing.jsx';
+import Privacy from './pages/Privacy.jsx';
+import AuditLog from './pages/AuditLog.jsx';
 
 export default function App() {
   const { loading } = useAuth();
@@ -54,6 +57,9 @@ export default function App() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/announcements" element={<Announcements />} />
         <Route path="/users" element={<ClubUsers />} />
+        <Route path="/billing" element={<Billing />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/admin/audit" element={<AuditLog />} />
         <Route path="/admin/applications" element={<Applications />} />
         <Route path="/admin/reviews" element={<Reviews />} />
       </Route>

@@ -19,6 +19,8 @@ import {
   Tabs,
   Tab,
   Divider,
+  Autocomplete,
+  InputAdornment,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -27,6 +29,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ScoreboardIcon from '@mui/icons-material/Scoreboard';
 import EventIcon from '@mui/icons-material/Event';
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
+import SearchIcon from '@mui/icons-material/Search';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import LineupViewerDialog from '../components/LineupViewerDialog.jsx';
@@ -61,6 +64,7 @@ export default function Matches() {
   const [teams, setTeams] = useState([]);
   const [tab, setTab] = useState(0);
   const [teamFilter, setTeamFilter] = useState('');
+  const [search, setSearch] = useState('');
 
   // Create / reschedule dialog.
   const [open, setOpen] = useState(false);
@@ -88,6 +92,15 @@ export default function Matches() {
         (m) => m.homeTeamId === teamFilter || m.awayTeamId === teamFilter
       );
     }
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (m) =>
+          (m.homeTeamName || '').toLowerCase().includes(q) ||
+          (m.awayTeamName || '').toLowerCase().includes(q) ||
+          (m.venue || '').toLowerCase().includes(q)
+      );
+    }
     const buckets = { upcoming: [], live: [], results: [] };
     for (const m of list) {
       if (m.status === 'LIVE') buckets.live.push(m);
@@ -97,7 +110,18 @@ export default function Matches() {
     buckets.upcoming.sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
     buckets.results.sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
     return buckets;
-  }, [matches, teamFilter]);
+  }, [matches, teamFilter, search]);
+
+  // Opponent / fixture name suggestions for the search box.
+  const searchOptions = useMemo(() => {
+    const set = new Set();
+    for (const m of matches) {
+      if (m.homeTeamName) set.add(m.homeTeamName);
+      if (m.awayTeamName) set.add(m.awayTeamName);
+      if (m.venue) set.add(m.venue);
+    }
+    return Array.from(set);
+  }, [matches]);
 
   const tabsData = [
     { label: `Upcoming (${filtered.upcoming.length})`, list: filtered.upcoming },
@@ -319,6 +343,31 @@ export default function Matches() {
             <Tab key={t.label} label={t.label} />
           ))}
         </Tabs>
+        <Autocomplete
+          freeSolo
+          size="small"
+          options={searchOptions}
+          inputValue={search}
+          onInputChange={(e, v) => setSearch(v)}
+          sx={{ minWidth: 200 }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="Search fixtures"
+              InputProps={{
+                ...params.InputProps,
+                startAdornment: (
+                  <>
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                    {params.InputProps.startAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
+        />
         <TextField
           select
           size="small"

@@ -9,6 +9,7 @@ import {
 } from '../controllers/team.controller.js';
 import { authorize } from '../middleware/authorize.js';
 import { validateBody } from '../middleware/validate.js';
+import { enforcePlanLimit } from '../middleware/planLimit.js';
 import { createTeamSchema } from '../validation/schemas.js';
 
 const router = Router();
@@ -19,6 +20,7 @@ router.get('/:id/overview', getTeamOverview);
 router.post(
   '/',
   authorize('CLUB_ADMIN'),
+  enforcePlanLimit('teams'),
   validateBody(createTeamSchema),
   createTeam
 );

@@ -23,6 +23,7 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  Autocomplete,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
@@ -31,6 +32,14 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import PlayerCard from '../components/PlayerCard.jsx';
+import {
+  ageGroupShort,
+  contractLabel,
+  contractColor,
+  POSITION_OPTIONS,
+  positionLabel,
+  availableJerseyNumbers,
+} from '../utils/football.js';
 
 export default function Players() {
   const navigate = useNavigate();
@@ -45,11 +54,61 @@ export default function Players() {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
+    idNumber: '',
+    email: '',
+    dateOfBirth: '',
     teamId: '',
     position: '',
     jerseyNumber: '',
     photoUrl: '',
+    contractStart: '',
+    contractEnd: '',
+    guardianFirstName: '',
+    guardianLastName: '',
+    guardianEmail: '',
+    guardianPhone: '',
+    guardianRelationship: '',
   });
+
+  const emptyForm = {
+    firstName: '',
+    lastName: '',
+    idNumber: '',
+    email: '',
+    dateOfBirth: '',
+    teamId: '',
+    position: '',
+    jerseyNumber: '',
+    photoUrl: '',
+    contractStart: '',
+    contractEnd: '',
+    guardianFirstName: '',
+    guardianLastName: '',
+    guardianEmail: '',
+    guardianPhone: '',
+    guardianRelationship: '',
+  };
+
+  // Work out the player's age from the entered date of birth. Under 18 makes
+  // the guardian section mandatory — exactly how a club registers a minor.
+  const playerAge = useMemo(() => {
+    if (!form.dateOfBirth) return null;
+    const dob = new Date(form.dateOfBirth);
+    if (Number.isNaN(dob.getTime())) return null;
+    return Math.floor((Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+  }, [form.dateOfBirth]);
+  const isMinor = playerAge != null && playerAge < 18;
+
+  // Jersey numbers already used in the selected team — so the picker only ever
+  // offers shirts that are still free for that team.
+  const jerseyOptions = useMemo(() => {
+    if (!form.teamId) return availableJerseyNumbers([]);
+    const taken = players
+      .filter((p) => p.teamId === form.teamId)
+      .map((p) => p.jerseyNumber)
+      .filter((n) => n != null);
+    return availableJerseyNumbers(taken);
+  }, [players, form.teamId]);
 
   // Read an uploaded image file as a base64 data URL stored directly in the DB.
   const handlePhotoUpload = (file) => {
@@ -66,15 +125,38 @@ export default function Players() {
   }, []);
 
   const handleCreate = async () => {
-    const payload = { ...form };
-    if (!payload.teamId) delete payload.teamId;
-    if (!payload.jerseyNumber) delete payload.jerseyNumber;
-    if (!payload.photoUrl) delete payload.photoUrl;
+    const payload = {
+      firstName: form.firstName,
+      lastName: form.lastName,
+      idNumber: form.idNumber,
+      email: form.email,
+    };
+    if (form.teamId) payload.teamId = form.teamId;
+    if (form.position) payload.position = form.position;
+    if (form.jerseyNumber) payload.jerseyNumber = form.jerseyNumber;
+    if (form.photoUrl) payload.photoUrl = form.photoUrl;
+    if (form.dateOfBirth) payload.dateOfBirth = form.dateOfBirth;
+    if (form.contractStart) payload.contractStart = form.contractStart;
+    if (form.contractEnd) payload.contractEnd = form.contractEnd;
+    if (isMinor) {
+      payload.guardian = {
+        firstName: form.guardianFirstName,
+        lastName: form.guardianLastName,
+        email: form.guardianEmail,
+        phone: form.guardianPhone || undefined,
+        relationship: form.guardianRelationship || undefined,
+      };
+    }
     await api.post('/players', payload);
     setOpen(false);
-    setForm({ firstName: '', lastName: '', teamId: '', position: '', jerseyNumber: '', photoUrl: '' });
+    setForm(emptyForm);
     load();
   };
+
+  // The guardian block is only required once we know the player is a minor.
+  const guardianComplete =
+    !isMinor ||
+    (form.guardianFirstName && form.guardianLastName && form.guardianEmail);
 
   const teamName = (id) => teams.find((t) => t.id === id)?.name || 'Unassigned';
 
@@ -120,19 +202,30 @@ export default function Players() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-          <TextField
+          <Autocomplete
+            freeSolo
             size="small"
-            placeholder="Search players"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ minWidth: 200 }}
+            options={players.map((p) => `${p.firstName} ${p.lastName}`)}
+            inputValue={search}
+            onInputChange={(e, v) => setSearch(v)}
+            sx={{ minWidth: 220 }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search players"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
           />
           <TextField
             size="small"
@@ -208,8 +301,10 @@ export default function Players() {
                 <TableRow>
                   <TableCell>Player</TableCell>
                   <TableCell>Team</TableCell>
+                  <TableCell>Age group</TableCell>
                   <TableCell>Position</TableCell>
                   <TableCell>#</TableCell>
+                  <TableCell>Contract</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -232,8 +327,46 @@ export default function Players() {
                       </Stack>
                     </TableCell>
                     <TableCell>{teamName(p.teamId)}</TableCell>
-                    <TableCell>{p.position || '—'}</TableCell>
+                    <TableCell>
+                      {p.ageGroup ? (
+                        <Chip size="small" variant="outlined" label={ageGroupShort(p.ageGroup)} />
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {p.position ? (
+                        <Chip size="small" variant="outlined" label={p.position} title={positionLabel(p.position)} />
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                     <TableCell>{p.jerseyNumber ?? '—'}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.75} alignItems="center">
+                        <Chip
+                          size="small"
+                          label={contractLabel(p.contract)}
+                          sx={{
+                            bgcolor: contractColor(p.contract).bg,
+                            color: contractColor(p.contract).fg,
+                            fontWeight: 700,
+                          }}
+                        />
+                        {p.contractRenewals > 0 && (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="success"
+                            label={
+                              p.contractRenewals > 1
+                                ? `Renewed ×${p.contractRenewals}`
+                                : 'Renewed'
+                            }
+                          />
+                        )}
+                      </Stack>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -248,14 +381,90 @@ export default function Players() {
           <Stack spacing={2} mt={1}>
             <TextField label="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} fullWidth />
             <TextField label="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} fullWidth />
-            <TextField select label="Team" value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })} fullWidth>
+            <TextField label="ID number" value={form.idNumber} onChange={(e) => setForm({ ...form, idNumber: e.target.value })} fullWidth required />
+            <TextField label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} fullWidth required />
+            <TextField
+              label="Date of birth"
+              type="date"
+              value={form.dateOfBirth}
+              onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              helperText={
+                playerAge != null
+                  ? isMinor
+                    ? `Age ${playerAge} — a guardian is required`
+                    : `Age ${playerAge}`
+                  : ' '
+              }
+              fullWidth
+            />
+            <TextField
+              select
+              label="Team"
+              value={form.teamId}
+              onChange={(e) =>
+                setForm({ ...form, teamId: e.target.value, jerseyNumber: '' })
+              }
+              fullWidth
+            >
               <MenuItem value="">Unassigned</MenuItem>
               {teams.map((t) => (
                 <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
               ))}
             </TextField>
-            <TextField label="Position" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} fullWidth />
-            <TextField label="Jersey number" type="number" value={form.jerseyNumber} onChange={(e) => setForm({ ...form, jerseyNumber: e.target.value })} fullWidth />
+            <TextField
+              select
+              label="Position"
+              value={form.position}
+              onChange={(e) => setForm({ ...form, position: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="">Not set</MenuItem>
+              {POSITION_OPTIONS.map((p) => (
+                <MenuItem key={p.value} value={p.value}>
+                  {p.value} — {p.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Autocomplete
+              options={jerseyOptions}
+              getOptionLabel={(o) => String(o)}
+              value={form.jerseyNumber === '' ? null : Number(form.jerseyNumber)}
+              onChange={(e, v) => setForm({ ...form, jerseyNumber: v ?? '' })}
+              isOptionEqualToValue={(o, v) => Number(o) === Number(v)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Jersey number"
+                  helperText={
+                    form.teamId
+                      ? `${jerseyOptions.length} number${jerseyOptions.length === 1 ? '' : 's'} available for this team`
+                      : 'Pick a team to see available numbers'
+                  }
+                />
+              )}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              Contract
+            </Typography>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Signed"
+                type="date"
+                value={form.contractStart}
+                onChange={(e) => setForm({ ...form, contractStart: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <TextField
+                label="Expires"
+                type="date"
+                value={form.contractEnd}
+                onChange={(e) => setForm({ ...form, contractEnd: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+            </Stack>
             <Stack direction="row" spacing={2} alignItems="center">
               <Avatar src={form.photoUrl || undefined} sx={{ width: 56, height: 56, bgcolor: 'primary.main' }}>
                 {form.firstName?.[0] || '?'}
@@ -270,11 +479,63 @@ export default function Players() {
                 />
               </Button>
             </Stack>
+
+            {isMinor && (
+              <>
+                <Box
+                  sx={{
+                    mt: 1,
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: 'warning.50',
+                    border: '1px solid',
+                    borderColor: 'warning.light',
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    Guardian details (required)
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    This player is under 18, so a parent or guardian must be added.
+                    They can sign in using the player's ID number to follow their
+                    child's stats.
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={2}>
+                  <TextField label="Guardian first name" value={form.guardianFirstName} onChange={(e) => setForm({ ...form, guardianFirstName: e.target.value })} fullWidth />
+                  <TextField label="Guardian last name" value={form.guardianLastName} onChange={(e) => setForm({ ...form, guardianLastName: e.target.value })} fullWidth />
+                </Stack>
+                <TextField label="Guardian email" type="email" value={form.guardianEmail} onChange={(e) => setForm({ ...form, guardianEmail: e.target.value })} fullWidth />
+                <Stack direction="row" spacing={2}>
+                  <TextField label="Guardian phone" value={form.guardianPhone} onChange={(e) => setForm({ ...form, guardianPhone: e.target.value })} fullWidth />
+                  <TextField select label="Relationship" value={form.guardianRelationship} onChange={(e) => setForm({ ...form, guardianRelationship: e.target.value })} fullWidth>
+                    <MenuItem value="">—</MenuItem>
+                    <MenuItem value="Parent">Parent</MenuItem>
+                    <MenuItem value="Mother">Mother</MenuItem>
+                    <MenuItem value="Father">Father</MenuItem>
+                    <MenuItem value="Grandparent">Grandparent</MenuItem>
+                    <MenuItem value="Sibling">Sibling</MenuItem>
+                    <MenuItem value="Guardian">Legal guardian</MenuItem>
+                  </TextField>
+                </Stack>
+              </>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button variant="text" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreate} disabled={!form.firstName || !form.lastName}>Register</Button>
+          <Button
+            onClick={handleCreate}
+            disabled={
+              !form.firstName ||
+              !form.lastName ||
+              !form.idNumber ||
+              !form.email ||
+              !guardianComplete
+            }
+          >
+            Register
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

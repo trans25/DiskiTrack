@@ -18,6 +18,7 @@ import {
   sendNewApplicationAdminEmail,
 } from '../utils/mailer.js';
 import { config } from '../config/index.js';
+import { recordAudit } from '../utils/audit.js';
 
 const toPublicUser = (row) => ({
   id: row.id,
@@ -57,8 +58,39 @@ export const login = asyncHandler(async (req, res) => {
   const user = rows[0];
   if (!user) throw ApiError.unauthorized('Invalid credentials');
 
+  // Account lockout: block sign-in while a temporary lock is active.
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    const mins = Math.ceil(
+      (new Date(user.locked_until).getTime() - Date.now()) / 60000
+    );
+    throw ApiError.forbidden(
+      `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.`
+    );
+  }
+
   const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) throw ApiError.unauthorized('Invalid credentials');
+  if (!ok) {
+    // Increment the failure counter; lock the account after 5 attempts.
+    const attempts = (user.failed_login_attempts || 0) + 1;
+    const LOCK_THRESHOLD = 5;
+    const lockFor = attempts >= LOCK_THRESHOLD ? "now() + interval '15 minutes'" : 'NULL';
+    await query(
+      `UPDATE users
+          SET failed_login_attempts = $2,
+              locked_until = ${lockFor}
+        WHERE id = $1`,
+      [user.id, attempts >= LOCK_THRESHOLD ? 0 : attempts]
+    );
+    recordAudit({
+      action: 'LOGIN_FAILURE',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `Failed login for ${user.email}`,
+      tenantId: user.tenant_id,
+      req,
+    });
+    throw ApiError.unauthorized('Invalid credentials');
+  }
 
   // Gate sign-in on the club approval workflow.
   if (user.club_status === 'PENDING') {
@@ -75,6 +107,72 @@ export const login = asyncHandler(async (req, res) => {
   }
   if (!user.is_active) {
     throw ApiError.unauthorized('Your account is not active. Please contact your club admin.');
+  }
+
+  await query(`UPDATE users SET last_login_at = now(), failed_login_attempts = 0, locked_until = NULL WHERE id = $1`, [user.id]);
+
+  recordAudit({
+    action: 'LOGIN_SUCCESS',
+    entityType: 'user',
+    entityId: user.id,
+    summary: `${user.email} signed in`,
+    tenantId: user.tenant_id,
+    actor: { id: user.id, email: user.email, role: user.role, tenantId: user.tenant_id },
+    req,
+  });
+
+  const tokens = issueTokens(user);
+  return res.json({ user: toPublicUser(user), ...tokens });
+});
+
+// Guardian quick sign-in by child's ID number.
+// number of one of their registered children; we validate it against the club
+// database. If a matching player with a linked guardian account exists, we log
+// that guardian in. Otherwise we return a clear "player not found" error.
+export const guardianIdLogin = asyncHandler(async (req, res) => {
+  const { idNumber } = req.body;
+  const id = idNumber.trim();
+
+  // Find the player by ID number (ID numbers are nationally unique).
+  const playerRes = await query(
+    `SELECT p.id AS player_id, p.tenant_id, c.status AS club_status
+       FROM players p
+       JOIN clubs c ON c.id = p.tenant_id
+      WHERE p.id_number = $1
+      LIMIT 1`,
+    [id]
+  );
+  const player = playerRes.rows[0];
+  if (!player) {
+    throw ApiError.notFound(
+      "We couldn't find a player with that ID number. Please check it and try again."
+    );
+  }
+  if (player.club_status && player.club_status !== 'APPROVED') {
+    throw ApiError.forbidden("This player's club is not active yet. Please contact the club.");
+  }
+
+  // Find the guardian linked to this player.
+  const guardianRes = await query(
+    `SELECT u.*
+       FROM guardian_players gp
+       JOIN guardians g ON g.id = gp.guardian_id
+       JOIN users u ON u.id = g.user_id
+      WHERE gp.player_id = $1
+      LIMIT 1`,
+    [player.player_id]
+  );
+  const user = guardianRes.rows[0];
+  if (!user) {
+    throw ApiError.notFound(
+      'No guardian is linked to this player yet. Please ask the club to add you as a guardian.'
+    );
+  }
+
+  // Activate the guardian account on first ID sign-in (no password needed).
+  if (!user.is_active) {
+    await query(`UPDATE users SET is_active = TRUE WHERE id = $1`, [user.id]);
+    user.is_active = true;
   }
 
   await query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [user.id]);

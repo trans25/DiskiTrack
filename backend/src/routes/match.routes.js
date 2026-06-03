@@ -17,6 +17,7 @@ import {
   getMatchLineup,
   saveMatchLineup,
 } from '../controllers/lineup.controller.js';
+import { getCallup, setCallup } from '../controllers/callup.controller.js';
 import { authorize } from '../middleware/authorize.js';
 import { validateBody } from '../middleware/validate.js';
 import { uploadVideo } from '../middleware/uploadVideo.js';
@@ -26,6 +27,7 @@ import {
   updateMatchSchema,
   createMatchEventSchema,
   saveLineupSchema,
+  matchCallupSchema,
 } from '../validation/schemas.js';
 
 const router = Router();
@@ -83,6 +85,16 @@ router.put(
   authorize('COACH'),
   validateBody(saveLineupSchema),
   saveMatchLineup
+);
+
+// Matchday call-ups (the travelling squad). Coaches/club admins select it and
+// can alert every selected player by email.
+router.get('/:matchId/callup', getCallup);
+router.put(
+  '/:matchId/callup',
+  authorize('CLUB_ADMIN', 'COACH'),
+  validateBody(matchCallupSchema),
+  setCallup
 );
 
 export default router;

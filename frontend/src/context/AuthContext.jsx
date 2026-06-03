@@ -36,6 +36,17 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
+  // Guardian quick sign-in: the parent enters their child's ID number and we
+  // validate it against the club database before issuing a guardian session.
+  const guardianLogin = async (idNumber) => {
+    const { data } = await api.post('/auth/guardian-login', { idNumber });
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    setUser(data.user);
+    connectSocket();
+    return data.user;
+  };
+
   // Shared by registration and reset/invite flows: persist tokens + set user.
   const applySession = (data) => {
     localStorage.setItem('accessToken', data.accessToken);
@@ -77,6 +88,7 @@ export const AuthProvider = ({ children }) => {
       user,
       loading,
       login,
+      guardianLogin,
       register,
       forgotPassword,
       resetPassword,
