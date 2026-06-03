@@ -1,0 +1,15 @@
+# Code owners for DiskiTrack
+# Every PR that touches these paths auto-requests a review from the owner.
+# Pair this with the "Require review from Code Owners" branch rule for enforcement.
+
+# Default owner for everything in the repo
+*                       @trans25
+
+# Backend API
+/backend/               @trans25
+
+# Frontend app
+/frontend/              @trans25
+
+# CI / security / repo configuration
+/.github/               @trans25
