@@ -477,7 +477,7 @@ export default function Landing() {
             </Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            © {new Date().getFullYear()} DiskiTrack. Live football analytics, for clubs.
+            © 2025 DiskiTrack. Live football analytics, for clubs.
           </Typography>
           <Stack direction="row" spacing={2}>
             <Button component={RouterLink} to="/login" variant="text" size="small" sx={{ color: 'text.secondary' }}>
