@@ -1,4 +1,5 @@
 import { Link as RouterLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import {
   AppBar,
   Box,
@@ -24,8 +25,21 @@ import DevicesIcon from '@mui/icons-material/Devices';
 import PlayCircleFilledWhiteIcon from '@mui/icons-material/PlayCircleFilledWhite';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import { useAuth } from '../context/AuthContext.jsx';
+import { api } from '../api/client.js';
 import ReviewsSection from '../components/ReviewsSection.jsx';
+
+const money = (cents, currency = 'ZAR') =>
+  cents === 0
+    ? 'Free'
+    : new Intl.NumberFormat('en-ZA', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 0,
+      }).format(cents / 100);
 
 const features = [
   {
@@ -59,14 +73,24 @@ const features = [
     body: 'Players under 18 are registered with a parent or guardian. Guardians simply sign in with their child\u2019s ID number to follow their stats, charts and progress, all in a safe space built just for them.',
   },
   {
-    icon: <SpeedIcon />,
-    title: 'Find anything in seconds',
-    body: 'Every list, from players to teams to fixtures, comes with smart search that completes as you type, plus filters that help you get to exactly who and what you need.',
+    icon: <NotificationsActiveIcon />,
+    title: 'Never miss an update',
+    body: 'A live notification centre keeps everyone in the loop. Messages, match call-ups and important club updates pop up the moment they happen, with a handy unread badge so nothing slips through.',
+  },
+  {
+    icon: <CreditCardIcon />,
+    title: 'Simple plans that grow with you',
+    body: 'Start free and upgrade as your club grows. Clear plans, transparent limits on teams and players, and an invoice history you can check any time, no surprises.',
+  },
+  {
+    icon: <PrivacyTipIcon />,
+    title: 'POPIA & GDPR compliant',
+    body: 'Your data is yours. Download a copy of your information whenever you like, control your consent, and request deletion at any time. We take protecting children\u2019s data especially seriously.',
   },
   {
     icon: <SecurityIcon />,
     title: 'Safe and secure',
-    body: 'DiskiTrack is safe and secure. Each club has its own private space, and only the right people can see the information.',
+    body: 'DiskiTrack is safe and secure. Each club has its own private space, accounts lock after repeated failed logins, and every important action is recorded in an audit trail so only the right people see the information.',
   },
 ];
 
@@ -142,6 +166,22 @@ const FeatureCard = ({ icon, title, body }) => (
 
 export default function Landing() {
   const { isAuthenticated } = useAuth();
+  const [plans, setPlans] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/public/plans')
+      .then((res) => {
+        if (active) setPlans(Array.isArray(res.data) ? res.data : res.data?.plans || []);
+      })
+      .catch(() => {
+        if (active) setPlans([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -321,7 +361,7 @@ export default function Landing() {
         </Stack>
         <Grid container spacing={3}>
           {features.map((f) => (
-            <Grid item xs={12} sm={6} md={4} key={f.title}>
+            <Grid item xs={12} sm={6} md={2.4} key={f.title}>
               <FeatureCard {...f} />
             </Grid>
           ))}
@@ -519,6 +559,84 @@ export default function Landing() {
           ))}
         </Grid>
       </Container>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Pricing                                                          */}
+      {/* ---------------------------------------------------------------- */}
+      {plans.length > 0 && (
+        <Box sx={{ bgcolor: 'rgba(21,101,192,0.04)' }}>
+          <Container maxWidth="lg" sx={{ py: { xs: 8, md: 10 } }}>
+            <Stack alignItems="center" textAlign="center" spacing={1.5} mb={6}>
+              <Typography variant="overline" color="primary" fontWeight={700} letterSpacing={1}>
+                Pricing
+              </Typography>
+              <Typography variant="h3" fontWeight={800} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' } }}>
+                Simple plans that grow with you
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 620 }}>
+                Start for free and upgrade when you are ready. Every plan includes
+                live match tracking, notifications and POPIA-ready privacy tools.
+              </Typography>
+            </Stack>
+            <Grid container spacing={3} justifyContent="center">
+              {plans.map((plan) => (
+                <Grid item xs={12} sm={6} md={4} key={plan.code || plan.id}>
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <CardContent sx={{ p: 3, flexGrow: 1 }}>
+                      <Typography variant="overline" color="primary" fontWeight={700}>
+                        {plan.name}
+                      </Typography>
+                      <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ my: 1 }}>
+                        <Typography variant="h4" fontWeight={800}>
+                          {money(plan.priceCents, plan.currency)}
+                        </Typography>
+                        {plan.priceCents > 0 && (
+                          <Typography variant="body2" color="text.secondary">
+                            / month
+                          </Typography>
+                        )}
+                      </Stack>
+                      <Divider sx={{ my: 2 }} />
+                      <Stack spacing={1.2}>
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <CheckCircleIcon color="primary" fontSize="small" />
+                          <Typography variant="body2" fontWeight={600}>
+                            {plan.maxTeams ? `Up to ${plan.maxTeams} teams` : 'Unlimited teams'}
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <CheckCircleIcon color="primary" fontSize="small" />
+                          <Typography variant="body2" fontWeight={600}>
+                            {plan.maxPlayers ? `Up to ${plan.maxPlayers} players` : 'Unlimited players'}
+                          </Typography>
+                        </Stack>
+                        {(plan.features || []).map((f) => (
+                          <Stack key={f} direction="row" spacing={1.5} alignItems="center">
+                            <CheckCircleIcon color="primary" fontSize="small" />
+                            <Typography variant="body2" fontWeight={600}>
+                              {f}
+                            </Typography>
+                          </Stack>
+                        ))}
+                      </Stack>
+                    </CardContent>
+                    <Box sx={{ p: 3, pt: 0 }}>
+                      <Button
+                        component={RouterLink}
+                        to={isAuthenticated ? '/billing' : '/register'}
+                        fullWidth
+                        variant={plan.priceCents === 0 ? 'outlined' : 'contained'}
+                      >
+                        {plan.priceCents === 0 ? 'Start for free' : 'Choose plan'}
+                      </Button>
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Container>
+        </Box>
+      )}
 
       {/* ---------------------------------------------------------------- */}
       {/* Reviews / testimonials                                           */}

@@ -188,6 +188,47 @@ export const approveClub = asyncHandler(async (req, res) => {
   res.json(toClub(result.club));
 });
 
+/**
+ * Email every active member of an (already approved) club to let them know
+ * the club is approved and they can now log in. SYSTEM_ADMIN only.
+ * Returns a per-recipient delivery summary so the send can be verified.
+ */
+export const notifyClubApproved = asyncHandler(async (req, res) => {
+  const { rows: clubRows } = await query(`SELECT * FROM clubs WHERE id = $1`, [
+    req.params.id,
+  ]);
+  const club = clubRows[0];
+  if (!club) throw ApiError.notFound('Club not found');
+
+  const { rows: members } = await query(
+    `SELECT id, email, first_name, last_name, role
+       FROM users
+      WHERE tenant_id = $1 AND is_active = TRUE AND email IS NOT NULL
+      ORDER BY role, first_name`,
+    [club.id]
+  );
+
+  const loginLink = `${config.appUrl}/login`;
+  const results = [];
+  for (const member of members) {
+    try {
+      const info = await sendApplicationApprovedEmail(member, club.name, loginLink);
+      results.push({ email: member.email, delivered: info?.delivered !== false });
+    } catch (err) {
+      results.push({ email: member.email, delivered: false, error: err.message });
+    }
+  }
+
+  const sent = results.filter((r) => r.delivered).length;
+  res.json({
+    club: club.name,
+    totalMembers: members.length,
+    sent,
+    failed: members.length - sent,
+    results,
+  });
+});
+
 // Reject a pending club with an optional reason.
 export const rejectClub = asyncHandler(async (req, res) => {
   const { reason } = req.body;

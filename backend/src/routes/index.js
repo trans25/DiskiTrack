@@ -18,6 +18,7 @@ import notificationRoutes from './notification.routes.js';
 import billingRoutes from './billing.routes.js';
 import privacyRoutes from './privacy.routes.js';
 import auditRoutes from './audit.routes.js';
+import { listPlans } from '../controllers/billing.controller.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { tenantIsolation } from '../middleware/tenantIsolation.js';
 
@@ -26,6 +27,8 @@ const router = Router();
 // Public
 router.use('/auth', authRoutes);
 router.use('/reviews', reviewRoutes);
+// Public plan catalogue for the marketing/landing page.
+router.get('/public/plans', listPlans);
 
 // Everything below requires a valid JWT and a resolved tenant context.
 router.use(authenticate, tenantIsolation);

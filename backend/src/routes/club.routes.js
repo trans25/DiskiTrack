@@ -9,6 +9,7 @@ import {
   getClubProof,
   approveClub,
   rejectClub,
+  notifyClubApproved,
 } from '../controllers/club.controller.js';
 import { authorize } from '../middleware/authorize.js';
 import { validateBody } from '../middleware/validate.js';
@@ -25,6 +26,7 @@ router.get('/pending', authorize('SYSTEM_ADMIN'), listPendingClubs);
 router.get('/:id/proof', authorize('SYSTEM_ADMIN'), getClubProof);
 router.post('/:id/approve', authorize('SYSTEM_ADMIN'), approveClub);
 router.post('/:id/reject', authorize('SYSTEM_ADMIN'), validateBody(rejectClubSchema), rejectClub);
+router.post('/:id/notify-approved', authorize('SYSTEM_ADMIN'), notifyClubApproved);
 
 router.get('/:id', authorize('SYSTEM_ADMIN', 'CLUB_ADMIN'), getClub);
 router.patch('/:id', authorize('SYSTEM_ADMIN', 'CLUB_ADMIN'), updateClub);
