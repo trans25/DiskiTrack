@@ -13,14 +13,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// On 401, clear the session and bounce to login.
+// On 401, clear the session and bounce to login — but only if the user
+// actually had a session. Anonymous visitors on public pages (e.g. the
+// landing page loading reviews) must never be redirected to login.
 api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401) {
+      const hadSession = Boolean(localStorage.getItem('accessToken'));
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      if (window.location.pathname !== '/login') {
+      if (hadSession && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
