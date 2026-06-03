@@ -24,6 +24,8 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useAnnouncements } from '../context/AnnouncementsContext.jsx';
 import CoachDashboard from './CoachDashboard.jsx';
+import PlayerDashboard from './PlayerDashboard.jsx';
+import GuardianDashboard from './GuardianDashboard.jsx';
 
 const StatCard = ({ icon, label, value, hint, onClick }) => {
   const content = (
@@ -93,12 +95,24 @@ export default function Dashboard() {
   const { items: announcements } = useAnnouncements();
   const pinned = announcements.filter((a) => a.isPinned).slice(0, 3);
 
-  useEffect(() => {
-    api.get('/stats/dashboard').then((res) => setStats(res.data));
-  }, []);
+  const role = user?.role;
+  const isStaff =
+    role === 'SYSTEM_ADMIN' || role === 'CLUB_ADMIN' || role === 'ANALYST';
 
-  if (user?.role === 'COACH') {
+  useEffect(() => {
+    // Only staff roles can read club-wide dashboard stats.
+    if (!isStaff) return;
+    api.get('/stats/dashboard').then((res) => setStats(res.data));
+  }, [isStaff]);
+
+  if (role === 'COACH') {
     return <CoachDashboard firstName={user?.firstName} />;
+  }
+  if (role === 'PLAYER') {
+    return <PlayerDashboard />;
+  }
+  if (role === 'GUARDIAN') {
+    return <GuardianDashboard />;
   }
 
   const u = stats?.users || {};

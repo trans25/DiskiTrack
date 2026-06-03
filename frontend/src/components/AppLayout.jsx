@@ -44,7 +44,7 @@ const drawerWidth = 240;
 
 const navItems = [
   { label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-  { label: 'Teams', icon: <GroupsIcon />, path: '/teams' },
+  { label: 'Teams', icon: <GroupsIcon />, path: '/teams', roles: ['SYSTEM_ADMIN', 'CLUB_ADMIN', 'COACH', 'ANALYST'] },
   { label: 'Players', icon: <PersonIcon />, path: '/players', roles: ['CLUB_ADMIN', 'COACH', 'ANALYST', 'GUARDIAN'] },
   { label: 'Matches', icon: <SportsSoccerIcon />, path: '/matches' },
   { label: 'Standings', icon: <EmojiEventsIcon />, path: '/standings' },
