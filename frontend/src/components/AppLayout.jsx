@@ -38,7 +38,7 @@ import { useAnnouncements } from '../context/AnnouncementsContext.jsx';
 const drawerWidth = 240;
 
 const navItems = [
-  { label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+  { label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   { label: 'Teams', icon: <GroupsIcon />, path: '/teams' },
   { label: 'Players', icon: <PersonIcon />, path: '/players', roles: ['CLUB_ADMIN', 'COACH', 'ANALYST', 'GUARDIAN'] },
   { label: 'Matches', icon: <SportsSoccerIcon />, path: '/matches' },
@@ -140,7 +140,7 @@ export default function AppLayout() {
 
       <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 3 }, width: { md: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar />
-        {location.pathname !== '/' && (
+        {location.pathname !== '/dashboard' && (
           <Button
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate(-1)}

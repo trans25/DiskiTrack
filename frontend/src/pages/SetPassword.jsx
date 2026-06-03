@@ -57,7 +57,7 @@ export default function SetPassword({ purpose }) {
     setLoading(true);
     try {
       await resetPassword(token, password, purpose);
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Could not set your password');
     } finally {

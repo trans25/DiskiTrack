@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import AppLayout from './components/AppLayout.jsx';
+import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
@@ -26,6 +27,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -39,7 +41,7 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/teams" element={<Teams />} />
         <Route path="/players" element={<Players />} />
         <Route path="/players/:id" element={<PlayerProfile />} />
@@ -54,7 +56,7 @@ export default function App() {
         <Route path="/admin/applications" element={<Applications />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
