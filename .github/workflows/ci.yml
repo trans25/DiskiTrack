@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, develop]
   pull_request:
-    branches: [master]
+    branches: [master, develop]
+
+# Least-privilege token: CI only needs to read the repository contents.
+permissions:
+  contents: read
 
 # Least-privilege token: CI only needs to read the repository contents.
 permissions:
