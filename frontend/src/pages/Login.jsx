@@ -63,18 +63,18 @@ export default function Login() {
         fullWidth
         sx={{ mb: 2 }}
       >
-        <ToggleButton value="user">Club member</ToggleButton>
-        <ToggleButton value="guardian">Parent / Guardian</ToggleButton>
+        <ToggleButton value="user">Staff (email)</ToggleButton>
+        <ToggleButton value="guardian">Player / Guardian (ID)</ToggleButton>
       </ToggleButtonGroup>
 
       <form onSubmit={handleSubmit}>
         {mode === 'guardian' ? (
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
-              Enter your child's ID number to sign in and follow their stats.
+              Enter the player's identification number used during registration. Players and guardians both sign in with this ID.
             </Typography>
             <TextField
-              label="Child's ID number"
+              label="Player ID number"
               value={childId}
               onChange={(e) => setChildId(e.target.value)}
               required

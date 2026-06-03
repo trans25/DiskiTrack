@@ -37,10 +37,14 @@ export const createApp = () => {
   app.use(morgan(config.env === 'development' ? 'dev' : 'combined'));
 
   // Serve uploaded match videos. Filenames are unguessable; range requests are
-  // supported by express.static so the <video> element can seek.
+  // supported by express.static so the <video> element can seek. Honors
+  // UPLOAD_DIR (a mounted persistent disk) when set, else the local folder.
+  const uploadsRoot = config.uploadDir
+    ? path.resolve(config.uploadDir)
+    : path.resolve(__dirname, '..', 'uploads');
   app.use(
     '/uploads',
-    express.static(path.resolve(__dirname, '..', 'uploads'), {
+    express.static(uploadsRoot, {
       maxAge: '1d',
       fallthrough: false,
     })

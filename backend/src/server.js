@@ -23,6 +23,16 @@ const start = async () => {
     console.error('[startup] Migration step failed:', err.message);
   }
 
+  // Warn loudly when uploaded videos live on an ephemeral filesystem in
+  // production: they will be lost on the next restart/redeploy. Set UPLOAD_DIR
+  // to a mounted persistent disk to make them durable.
+  if (config.env === 'production' && !config.uploadDir) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[startup] WARNING: UPLOAD_DIR is not set. Uploaded match videos are stored on an ephemeral filesystem and will NOT survive restarts/redeploys. Mount a persistent disk and set UPLOAD_DIR for durable storage.'
+    );
+  }
+
   server.listen(config.port, () => {
     // eslint-disable-next-line no-console
     console.log(`DiskiTrack API listening on http://localhost:${config.port}`);

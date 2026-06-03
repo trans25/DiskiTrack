@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { query, withTransaction } from '../db/pool.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -192,30 +193,65 @@ export const guestLogin = asyncHandler(async (req, res) => {
 // number of one of their registered children; we validate it against the club
 // database. If a matching player with a linked guardian account exists, we log
 // that guardian in. Otherwise we return a clear "player not found" error.
+// Whole-year age from a date of birth (null when unknown).
+const ageFromDob = (dob) => {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+};
+
+/**
+ * Unified ID-number sign-in for players and guardians.
+ *
+ * One ID number resolves to the right account:
+ *  - Adult players (18+) or players who already have a login account sign in
+ *    as themselves (a PLAYER account is auto-provisioned on first use).
+ *  - Minors fall back to the guardian linked to that player.
+ *
+ * No password is required: first ID sign-in activates/creates the account.
+ */
 export const guardianIdLogin = asyncHandler(async (req, res) => {
   const { idNumber } = req.body;
   const id = idNumber.trim();
 
-  // Find the player by ID number (ID numbers are nationally unique).
+  // Find the player by ID number. A national ID can appear in more than one
+  // club, so resolve deterministically: prefer an APPROVED club, then the most
+  // recent registration. This avoids landing on a pending-club row at random.
   const playerRes = await query(
-    `SELECT p.id AS player_id, p.tenant_id, c.status AS club_status
+    `SELECT p.id AS player_id, p.tenant_id, p.user_id, p.first_name, p.last_name,
+            p.email, p.date_of_birth, c.status AS club_status
        FROM players p
        JOIN clubs c ON c.id = p.tenant_id
       WHERE p.id_number = $1
+      ORDER BY (c.status = 'APPROVED') DESC, p.created_at DESC
       LIMIT 1`,
     [id]
   );
   const player = playerRes.rows[0];
   if (!player) {
     throw ApiError.notFound(
-      "We couldn't find a player with that ID number. Please check it and try again."
+      "We couldn't find anyone with that ID number. Please check it and try again."
     );
   }
   if (player.club_status && player.club_status !== 'APPROVED') {
     throw ApiError.forbidden("This player's club is not active yet. Please contact the club.");
   }
 
-  // Find the guardian linked to this player.
+  const age = ageFromDob(player.date_of_birth);
+  const isMinor = age != null && age < 18;
+
+  // Adult players (or players who already have an account) sign in as themselves.
+  if (player.user_id || !isMinor) {
+    const user = await resolvePlayerUser(player);
+    if (user) {
+      await query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [user.id]);
+      const tokens = issueTokens(user);
+      return res.json({ user: toPublicUser(user), ...tokens });
+    }
+  }
+
+  // Otherwise fall back to the guardian linked to this player.
   const guardianRes = await query(
     `SELECT u.*
        FROM guardian_players gp
@@ -228,7 +264,7 @@ export const guardianIdLogin = asyncHandler(async (req, res) => {
   const user = guardianRes.rows[0];
   if (!user) {
     throw ApiError.notFound(
-      'No guardian is linked to this player yet. Please ask the club to add you as a guardian.'
+      'No account is linked to this ID yet. Please ask the club to add you as a player or guardian.'
     );
   }
 
@@ -243,6 +279,46 @@ export const guardianIdLogin = asyncHandler(async (req, res) => {
   const tokens = issueTokens(user);
   return res.json({ user: toPublicUser(user), ...tokens });
 });
+
+/**
+ * Return the PLAYER user account for a player row, creating and linking one on
+ * first ID sign-in. Returns null when the player has no e-mail and therefore
+ * cannot have a self-service account (caller falls back to the guardian).
+ */
+const resolvePlayerUser = async (player) => {
+  // Existing linked account: load and ensure it's active.
+  if (player.user_id) {
+    const { rows } = await query(`SELECT * FROM users WHERE id = $1 LIMIT 1`, [player.user_id]);
+    const existing = rows[0];
+    if (existing) {
+      if (!existing.is_active) {
+        await query(`UPDATE users SET is_active = TRUE WHERE id = $1`, [existing.id]);
+        existing.is_active = true;
+      }
+      return existing;
+    }
+  }
+
+  // Auto-provision a PLAYER account on first sign-in.
+  const email =
+    player.email && player.email.trim()
+      ? player.email.trim()
+      : `player.${player.player_id}@diskitrack.local`;
+  const randomHash = await bcrypt.hash(crypto.randomUUID(), 10);
+
+  return withTransaction(async (client) => {
+    const insertRes = await client.query(
+      `INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role, is_active, last_login_at)
+       VALUES ($1, $2, $3, $4, $5, 'PLAYER', TRUE, now())
+       ON CONFLICT (tenant_id, email) DO UPDATE SET is_active = TRUE
+       RETURNING *`,
+      [player.tenant_id, email, randomHash, player.first_name, player.last_name]
+    );
+    const user = insertRes.rows[0];
+    await client.query(`UPDATE players SET user_id = $1 WHERE id = $2`, [user.id, player.player_id]);
+    return user;
+  });
+};
 
 export const refresh = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;

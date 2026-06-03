@@ -26,6 +26,7 @@ import { useAnnouncements } from '../context/AnnouncementsContext.jsx';
 import CoachDashboard from './CoachDashboard.jsx';
 import PlayerDashboard from './PlayerDashboard.jsx';
 import GuardianDashboard from './GuardianDashboard.jsx';
+import AnalystDashboard from './AnalystDashboard.jsx';
 
 const StatCard = ({ icon, label, value, hint, onClick }) => {
   const content = (
@@ -113,6 +114,9 @@ export default function Dashboard() {
   }
   if (role === 'GUARDIAN') {
     return <GuardianDashboard />;
+  }
+  if (role === 'ANALYST') {
+    return <AnalystDashboard />;
   }
 
   const u = stats?.users || {};

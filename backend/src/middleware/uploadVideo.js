@@ -3,11 +3,16 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { ApiError } from '../utils/ApiError.js';
+import { config } from '../config/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Absolute path to the on-disk video store (backend/uploads/videos).
-export const VIDEO_DIR = path.resolve(__dirname, '..', '..', 'uploads', 'videos');
+// Absolute path to the on-disk video store. Defaults to backend/uploads/videos
+// but can be redirected to a mounted persistent disk via UPLOAD_DIR so videos
+// survive restarts on ephemeral hosts (e.g. Render).
+export const VIDEO_DIR = config.uploadDir
+  ? path.resolve(config.uploadDir, 'videos')
+  : path.resolve(__dirname, '..', '..', 'uploads', 'videos');
 fs.mkdirSync(VIDEO_DIR, { recursive: true });
 
 const ALLOWED = new Set([

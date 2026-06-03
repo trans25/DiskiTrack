@@ -6,6 +6,7 @@ import {
   clubAnalytics,
   platformAnalytics,
   coachPerformance,
+  analystReports,
 } from '../controllers/analytics.controller.js';
 import { authorize } from '../middleware/authorize.js';
 
@@ -23,5 +24,8 @@ router.get('/platform', authorize('SYSTEM_ADMIN'), platformAnalytics);
 
 // Coach performance across their own teams.
 router.get('/coach/performance', authorize('COACH'), coachPerformance);
+
+// Analyst self-service reports (only events they personally logged).
+router.get('/my-reports', authorize('ANALYST'), analystReports);
 
 export default router;

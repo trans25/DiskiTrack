@@ -282,3 +282,70 @@ export const coachPerformance = asyncHandler(async (req, res) => {
     })),
   });
 });
+
+/**
+ * Analyst self-service reports: everything the logged-in ANALYST has personally
+ * recorded (match_events.created_by = req.user.id), scoped to their club.
+ * Powers the "My Reports" tab on the analyst dashboard.
+ */
+export const analystReports = asyncHandler(async (req, res) => {
+  const t = req.tenantId;
+  const u = req.user.id;
+
+  const [totals, eventDist, trend, recentMatches] = await Promise.all([
+    // Headline totals for this analyst.
+    query(
+      `SELECT
+          COUNT(*)::int                                   AS events_logged,
+          COUNT(DISTINCT match_id)::int                   AS matches_covered,
+          COUNT(*) FILTER (WHERE event_type = 'GOAL')::int AS goals_logged
+         FROM match_events
+        WHERE tenant_id = $1 AND created_by = $2`,
+      [t, u]
+    ),
+    // Distribution of event types the analyst logged (pie).
+    query(
+      `SELECT event_type, COUNT(*)::int AS count
+         FROM match_events
+        WHERE tenant_id = $1 AND created_by = $2
+        GROUP BY event_type
+        ORDER BY count DESC`,
+      [t, u]
+    ),
+    // Events logged per month (line/bar).
+    query(
+      `SELECT to_char(date_trunc('month', created_at), 'Mon YYYY') AS label,
+              date_trunc('month', created_at) AS bucket,
+              COUNT(*)::int AS events
+         FROM match_events
+        WHERE tenant_id = $1 AND created_by = $2
+        GROUP BY bucket
+        ORDER BY bucket
+        LIMIT 12`,
+      [t, u]
+    ),
+    // Recent matches the analyst tagged, with event counts.
+    query(
+      `SELECT m.id, m.scheduled_at, m.status, m.home_score, m.away_score,
+              ht.name AS home_team_name, at.name AS away_team_name,
+              COUNT(e.id)::int AS events_logged,
+              MAX(e.created_at) AS last_logged_at
+         FROM match_events e
+         JOIN matches m ON m.id = e.match_id
+         JOIN teams ht ON ht.id = m.home_team_id
+         JOIN teams at ON at.id = m.away_team_id
+        WHERE e.tenant_id = $1 AND e.created_by = $2
+        GROUP BY m.id, ht.name, at.name
+        ORDER BY last_logged_at DESC
+        LIMIT 10`,
+      [t, u]
+    ),
+  ]);
+
+  res.json({
+    totals: totals.rows[0],
+    eventDistribution: eventDist.rows,
+    trend: trend.rows.map((r) => ({ label: r.label, events: r.events })),
+    recentMatches: recentMatches.rows,
+  });
+});

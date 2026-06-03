@@ -2,18 +2,25 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const isProduction = (process.env.NODE_ENV || 'development') === 'production';
+
 const required = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
 // In production the database is supplied via DATABASE_URL; locally via PGDATABASE.
 if (!process.env.DATABASE_URL) required.push('PGDATABASE');
-for (const key of required) {
-  if (!process.env[key]) {
-    // eslint-disable-next-line no-console
-    console.warn(`[config] Warning: environment variable ${key} is not set.`);
+
+const missing = required.filter((key) => !process.env[key]);
+if (missing.length) {
+  const message = `[config] Missing required environment variable(s): ${missing.join(', ')}`;
+  // In production, refuse to boot with insecure fallbacks (e.g. forgeable JWTs).
+  if (isProduction) {
+    throw new Error(message);
   }
+  // eslint-disable-next-line no-console
+  console.warn(`${message} — using insecure development defaults.`);
 }
 
 export const config = {
-  env: process.env.NODE_ENV || 'development',
+  env: isProduction ? 'production' : process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 4000,
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   db: {
@@ -35,6 +42,10 @@ export const config = {
   // Guest / demo login. Enabled by default for testing/portfolio demos; set
   // ENABLE_GUEST_LOGIN=false to disable in a locked-down environment.
   enableGuestLogin: process.env.ENABLE_GUEST_LOGIN !== 'false',
+  // Where uploaded match videos are stored on disk. On ephemeral hosts (e.g.
+  // Render's default filesystem) set UPLOAD_DIR to a mounted persistent disk so
+  // videos survive restarts/redeploys; otherwise they are lost on each deploy.
+  uploadDir: process.env.UPLOAD_DIR || '',
   // SMTP / email. When host is unset, emails are logged to the console so the
   // full flow still works locally without a mail server.
   smtp: {
