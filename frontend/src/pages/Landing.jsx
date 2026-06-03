@@ -29,71 +29,71 @@ import { useAuth } from '../context/AuthContext.jsx';
 const features = [
   {
     icon: <PlayCircleFilledWhiteIcon />,
-    title: 'Live Match Tracking',
-    body: 'Run the match-day control center from any device. Capture goals, cards, substitutions and key events in real time, with instant updates pushed to every connected screen.',
+    title: 'Control the match from anywhere',
+    body: 'Track matches with DiskiTrack. See what is happening in the game as it happens, make notes, and capture the key moments from your phone, tablet or computer.',
   },
   {
     icon: <InsightsIcon />,
-    title: 'Analytics & Insights',
-    body: 'Turn raw events into decisions. Player form, team trends and performance breakdowns are visualised in clean, interactive charts you can drill into.',
+    title: 'See how your players are doing',
+    body: 'Look at how your players are performing and make decisions based on what the numbers tell you, all laid out in clean, easy-to-read charts.',
   },
   {
     icon: <GroupsIcon />,
-    title: 'Squad & Roster Management',
-    body: 'Manage teams across every age group — first team, reserves, youth and ladies — with full player profiles, positions, line-ups and substitutes.',
+    title: 'Manage your team',
+    body: 'Make a list of your players and see who is playing well. DiskiTrack helps you manage your whole team in one place.',
   },
   {
     icon: <FitnessCenterIcon />,
-    title: 'Training & Attendance',
-    body: 'Schedule training sessions, track attendance and keep your coaching staff aligned around a single source of truth for the whole club.',
+    title: 'Schedule training',
+    body: 'Schedule training sessions and see who is coming, so your coaching staff always knows where everyone stands.',
   },
   {
     icon: <EmojiEventsIcon />,
-    title: 'Standings & Log Tables',
-    body: 'Automatic log standings for your competitions so players, coaches and admins always know exactly where their team sits.',
+    title: 'Keep track of the standings',
+    body: 'It even helps you keep track of where your team is in the standings, updated for you automatically.',
   },
   {
     icon: <SecurityIcon />,
-    title: 'Multi-Tenant & Secure',
-    body: 'Every club is fully isolated. Role-based access keeps each member to exactly the data they should see, protected by JWT authentication.',
+    title: 'Safe and secure',
+    body: 'DiskiTrack is safe and secure. Each club has its own private space, and only the right people can see the information.',
   },
 ];
 
 const roles = [
   {
     title: 'System Admin',
-    body: 'Oversees the entire platform, onboards new clubs and reviews registration applications before granting access.',
+    body: 'This person is in charge of the platform and approves new clubs before they get access.',
   },
   {
     title: 'Club Admin',
-    body: 'Runs the club day-to-day — manages teams, players, coaches, analysts, members, matches and announcements.',
+    body: 'This person runs the club day to day — the teams, players, staff, matches and announcements.',
   },
   {
     title: 'Coach',
-    body: 'Selects the starting eleven and substitutes, runs live match tracking and manages training sessions.',
+    body: 'This person picks the team and runs the training sessions.',
   },
   {
     title: 'Analyst',
-    body: 'Reviews match data, dives into analytics and helps shape performance decisions with the numbers.',
+    body: 'This person looks at the numbers and helps make decisions.',
   },
 ];
 
 const steps = [
   {
-    title: 'Register your club',
-    body: 'Sign up and upload a document proving you represent your club. Your application is sent to our team for review.',
+    title: 'Sign up',
+    body: 'Sign up for DiskiTrack and prove you are from the club by uploading a document.',
   },
   {
-    title: 'Get approved',
-    body: 'A system administrator verifies your proof of representation. Once approved, your club workspace is activated.',
+    title: 'Wait for approval',
+    body: 'Wait for approval from the system administrator. Once you are approved, your club space is ready.',
   },
   {
-    title: 'Build your squad',
-    body: 'Add your teams across every age group, create player profiles and invite your coaches, analysts and staff.',
+    title: 'Make your team',
+    body: 'Make your team. Add your players and coaches so everyone is in one place.',
   },
   {
-    title: 'Track & analyse',
-    body: 'Run live matches, record events, monitor training and watch your analytics and standings update automatically.',
+    title: 'Start tracking',
+    body: 'Start tracking your matches and training sessions, and watch your standings update along the way.',
   },
 ];
 
@@ -161,6 +161,27 @@ export default function Landing() {
       </AppBar>
 
       {/* ---------------------------------------------------------------- */}
+      {/* Development stage notice                                         */}
+      {/* ---------------------------------------------------------------- */}
+      <Box
+        sx={{
+          bgcolor: 'rgba(21,101,192,0.08)',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          py: 1,
+        }}
+      >
+        <Container maxWidth="lg">
+          <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" flexWrap="wrap">
+            <SpeedIcon fontSize="small" color="primary" />
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              DiskiTrack is in its <Box component="span" sx={{ fontWeight: 700, color: 'primary.main' }}>final development stages</Box> — you may spot small changes as we put the finishing touches in place.
+            </Typography>
+          </Stack>
+        </Container>
+      </Box>
+
+      {/* ---------------------------------------------------------------- */}
       {/* Hero                                                             */}
       {/* ---------------------------------------------------------------- */}
       <Box
@@ -188,7 +209,7 @@ export default function Landing() {
               >
                 <SpeedIcon fontSize="small" />
                 <Typography variant="caption" fontWeight={600}>
-                  Real-time football analytics for modern clubs
+                  A tool for football clubs · In its final development stages
                 </Typography>
               </Stack>
               <Typography
@@ -196,12 +217,12 @@ export default function Landing() {
                 fontWeight={800}
                 sx={{ fontSize: { xs: '2.25rem', md: '3.25rem' }, lineHeight: 1.1, mb: 2 }}
               >
-                Run your club like a pro, from the field to the front office.
+                Manage your team, from the field to the office.
               </Typography>
               <Typography variant="h6" fontWeight={400} sx={{ opacity: 0.9, mb: 4, maxWidth: 560 }}>
-                DiskiTrack is the all-in-one platform for football clubs to manage squads,
-                track live matches, monitor training and turn every match into actionable
-                insight — across mobile, tablet and desktop.
+                DiskiTrack is a tool for football clubs. It helps them manage their teams,
+                track matches and keep an eye on training — and make better decisions. You
+                can use it on your phone, tablet or computer.
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 {isAuthenticated ? (
@@ -241,9 +262,9 @@ export default function Landing() {
             <Grid item xs={12} md={5}>
               <Stack spacing={2}>
                 {[
-                  { icon: <PlayCircleFilledWhiteIcon />, label: 'Live match control center' },
-                  { icon: <InsightsIcon />, label: 'Interactive performance analytics' },
-                  { icon: <DevicesIcon />, label: 'Works on mobile, tablet & desktop' },
+                  { icon: <PlayCircleFilledWhiteIcon />, label: 'Control the match from anywhere' },
+                  { icon: <InsightsIcon />, label: 'See how your players are doing' },
+                  { icon: <DevicesIcon />, label: 'Works on your phone, tablet & computer' },
                 ].map((item) => (
                   <Stack
                     key={item.label}
@@ -276,12 +297,11 @@ export default function Landing() {
             Everything your club needs
           </Typography>
           <Typography variant="h3" fontWeight={800} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' } }}>
-            One platform for the whole season
+            One tool for the whole season
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640 }}>
-            From the first whistle of pre-season to the final match of the campaign,
-            DiskiTrack keeps your players, coaches and administrators working from the
-            same playbook.
+            DiskiTrack is with you for the season. From the first game to the last, it helps
+            your players, coaches and staff work together.
           </Typography>
         </Stack>
         <Grid container spacing={3}>
@@ -307,9 +327,8 @@ export default function Landing() {
                 Built for everyone in the club
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
-                DiskiTrack gives each member of your club exactly the tools they need — and
-                nothing they don't. Clear permissions keep your data secure while everyone
-                stays focused on their part of the game.
+                DiskiTrack is designed for everyone in the club. It gives each person the
+                tools they need to do their job — and keeps everyone else's data safe.
               </Typography>
               <Stack spacing={1.5}>
                 {['Secure JWT authentication', 'Strict per-club data isolation', 'Granular role-based access control'].map((point) => (
@@ -356,7 +375,7 @@ export default function Landing() {
             Getting started
           </Typography>
           <Typography variant="h3" fontWeight={800} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' } }}>
-            Up and running in four steps
+            Getting started is easy
           </Typography>
         </Stack>
         <Grid container spacing={3}>
@@ -411,8 +430,8 @@ export default function Landing() {
               Ready to bring your club into the game?
             </Typography>
             <Typography variant="h6" fontWeight={400} sx={{ opacity: 0.9, mb: 4, maxWidth: 620, mx: 'auto' }}>
-              Join DiskiTrack and give your players, coaches and administrators the tools to
-              perform at their best — every training session, every match, every season.
+              Join DiskiTrack and give your players, coaches and staff the tools they need
+              to succeed — every training session, every match, every season.
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
               <Button
@@ -458,7 +477,7 @@ export default function Landing() {
             </Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            © {new Date().getFullYear()} DiskiTrack. Live football analytics for modern clubs.
+            © {new Date().getFullYear()} DiskiTrack. Live football analytics, for clubs.
           </Typography>
           <Stack direction="row" spacing={2}>
             <Button component={RouterLink} to="/login" variant="text" size="small" sx={{ color: 'text.secondary' }}>
