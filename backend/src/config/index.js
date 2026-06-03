@@ -42,4 +42,13 @@ export const config = {
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || 'DiskiTrack <no-reply@diskitrack.app>',
   },
+  // Resend HTTP email API. Preferred in production (e.g. Render) because it
+  // works over HTTPS (443) and is not blocked like outbound SMTP ports.
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || '',
+    from:
+      process.env.RESEND_FROM ||
+      process.env.SMTP_FROM ||
+      'DiskiTrack <onboarding@resend.dev>',
+  },
 };

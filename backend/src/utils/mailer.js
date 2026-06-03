@@ -110,11 +110,29 @@ const baseTemplate = ({ title, intro, bodyHtml = '', actionUrl, actionLabel, not
 </html>`;
 
 export const sendMail = async ({ to, subject, html, text }) => {
+  // 1. Preferred: Resend HTTP API. Works on hosts that block outbound SMTP
+  //    (e.g. Render free/starter) because it goes over HTTPS (443).
+  if (config.resend.apiKey) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.resend.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from: config.resend.from, to, subject, html, text }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`Resend API error ${res.status}: ${detail}`);
+    }
+    return { delivered: true };
+  }
+
+  // 2. Fallback: classic SMTP transport (works locally / on hosts that allow it).
   const transport = getTransport();
   if (!transport) {
-   
     console.log(
-      `\n[mailer] SMTP not configured — email NOT sent.\n  To: ${to}\n  Subject: ${subject}\n  ${text || ''}\n`
+      `\n[mailer] No email provider configured — email NOT sent.\n  To: ${to}\n  Subject: ${subject}\n  ${text || ''}\n`
     );
     return { delivered: false };
   }
