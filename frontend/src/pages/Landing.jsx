@@ -66,7 +66,7 @@ const roles = [
   },
   {
     title: 'Club Admin',
-    body: 'This person runs the club day to day — the teams, players, staff, matches and announcements.',
+    body: 'This person runs the club day to day, including the teams, players, staff, matches and announcements.',
   },
   {
     title: 'Coach',
@@ -175,7 +175,7 @@ export default function Landing() {
           <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" flexWrap="wrap">
             <SpeedIcon fontSize="small" color="primary" />
             <Typography variant="body2" color="text.secondary" textAlign="center">
-              DiskiTrack is in its <Box component="span" sx={{ fontWeight: 700, color: 'primary.main' }}>final development stages</Box> — you may spot small changes as we put the finishing touches in place.
+              DiskiTrack is in its <Box component="span" sx={{ fontWeight: 700, color: 'primary.main' }}>final development stages</Box>. You may spot small changes as we put the finishing touches in place.
             </Typography>
           </Stack>
         </Container>
@@ -221,7 +221,7 @@ export default function Landing() {
               </Typography>
               <Typography variant="h6" fontWeight={400} sx={{ opacity: 0.9, mb: 4, maxWidth: 560 }}>
                 DiskiTrack is a tool for football clubs. It helps them manage their teams,
-                track matches and keep an eye on training — and make better decisions. You
+                track matches and keep an eye on training, and make better decisions. You
                 can use it on your phone, tablet or computer.
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -328,7 +328,7 @@ export default function Landing() {
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
                 DiskiTrack is designed for everyone in the club. It gives each person the
-                tools they need to do their job — and keeps everyone else's data safe.
+                tools they need to do their job, and keeps everyone else's data safe.
               </Typography>
               <Stack spacing={1.5}>
                 {['Secure JWT authentication', 'Strict per-club data isolation', 'Granular role-based access control'].map((point) => (
@@ -431,7 +431,7 @@ export default function Landing() {
             </Typography>
             <Typography variant="h6" fontWeight={400} sx={{ opacity: 0.9, mb: 4, maxWidth: 620, mx: 'auto' }}>
               Join DiskiTrack and give your players, coaches and staff the tools they need
-              to succeed — every training session, every match, every season.
+              to succeed. Every training session, every match, every season.
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
               <Button
