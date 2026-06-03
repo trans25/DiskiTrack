@@ -1,7 +1,4 @@
-// Lightweight geo reference for the club registration form. Not exhaustive —
-// it covers the countries we realistically onboard, with their major cities, so
-// the Country/City pickers can autocomplete and filter as the user types.
-// Both fields stay free-text (freeSolo) so anything not listed can still be entered.
+
 
 export const COUNTRIES = [
   'South Africa',
