@@ -14,4 +14,4 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS contract_end DATE;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS contract_renewals SMALLINT NOT NULL DEFAULT 0;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS contract_renewed_at TIMESTAMPTZ;
 
-CREATE INDEX IF NOT EXISTS idx_players_contract_end ON players(contract
+CREATE INDEX IF NOT EXISTS idx_players_contract_end ON players(contract_end);
