@@ -403,6 +403,12 @@ export const getPlayerProfile = asyncHandler(async (req, res) => {
         COALESCE(SUM(goals), 0)::int          AS goals,
         COALESCE(SUM(assists), 0)::int        AS assists,
         COALESCE(SUM(shots), 0)::int          AS shots,
+        COALESCE(SUM(shots_on_target), 0)::int AS shots_on_target,
+        COALESCE(SUM(saves), 0)::int          AS saves,
+        COALESCE(SUM(tackles), 0)::int        AS tackles,
+        COALESCE(SUM(interceptions), 0)::int  AS interceptions,
+        COALESCE(SUM(offsides), 0)::int       AS offsides,
+        COALESCE(SUM(own_goals), 0)::int      AS own_goals,
         COALESCE(SUM(fouls), 0)::int          AS fouls,
         COALESCE(SUM(yellow_cards), 0)::int   AS yellow_cards,
         COALESCE(SUM(red_cards), 0)::int      AS red_cards,
@@ -416,6 +422,8 @@ export const getPlayerProfile = asyncHandler(async (req, res) => {
   // 3. Per-match breakdown (chronological) for trend charts.
   const perMatchRes = await query(
     `SELECT ps.match_id, ps.goals, ps.assists, ps.shots, ps.fouls,
+            ps.shots_on_target, ps.saves, ps.tackles, ps.interceptions,
+            ps.offsides, ps.own_goals,
             ps.yellow_cards, ps.red_cards, ps.minutes_played,
             m.scheduled_at, m.home_team_id, m.away_team_id,
             m.home_score, m.away_score,
@@ -442,6 +450,12 @@ export const getPlayerProfile = asyncHandler(async (req, res) => {
       goals: r.goals,
       assists: r.assists,
       shots: r.shots,
+      shotsOnTarget: r.shots_on_target,
+      saves: r.saves,
+      tackles: r.tackles,
+      interceptions: r.interceptions,
+      offsides: r.offsides,
+      ownGoals: r.own_goals,
       fouls: r.fouls,
       yellowCards: r.yellow_cards,
       redCards: r.red_cards,
@@ -459,6 +473,8 @@ export const getPlayerProfile = asyncHandler(async (req, res) => {
   };
   const shotConversion =
     totals.shots > 0 ? +((totals.goals / totals.shots) * 100).toFixed(1) : 0;
+  const shotAccuracy =
+    totals.shots > 0 ? +((totals.shots_on_target / totals.shots) * 100).toFixed(1) : 0;
 
   res.json({
     player: {
@@ -485,6 +501,7 @@ export const getPlayerProfile = asyncHandler(async (req, res) => {
     totals,
     averages,
     shotConversion,
+    shotAccuracy,
     perMatch,
   });
 });

@@ -18,6 +18,10 @@ import {
   saveMatchLineup,
 } from '../controllers/lineup.controller.js';
 import { getCallup, setCallup } from '../controllers/callup.controller.js';
+import {
+  getMatchAvailability,
+  setPlayerAvailability,
+} from '../controllers/availability.controller.js';
 import { authorize } from '../middleware/authorize.js';
 import { validateBody } from '../middleware/validate.js';
 import { uploadVideo } from '../middleware/uploadVideo.js';
@@ -95,6 +99,19 @@ router.put(
   authorize('CLUB_ADMIN', 'COACH'),
   validateBody(matchCallupSchema),
   setCallup
+);
+
+// Match availability / RSVP. Coaches see the whole squad's responses; players
+// and guardians submit availability for their own player only.
+router.get(
+  '/:matchId/availability',
+  authorize('CLUB_ADMIN', 'COACH'),
+  getMatchAvailability
+);
+router.put(
+  '/:matchId/availability',
+  authorize('PLAYER', 'GUARDIAN'),
+  setPlayerAvailability
 );
 
 export default router;

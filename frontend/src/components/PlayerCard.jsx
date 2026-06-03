@@ -1,10 +1,10 @@
 import { Box, Typography } from '@mui/material';
 import VerifiedIcon from '@mui/icons-material/Verified';
-import { getPlayerCard } from '../utils/playerCard.js';
 import {
   ageGroupShort,
   contractLabel,
   contractColor,
+  positionLabel,
 } from '../utils/football.js';
 
 // Position accent colors (clean, modern palette).
@@ -15,33 +15,26 @@ const POS_COLORS = {
   FWD: '#f43f5e',
 };
 
-const ratingColor = (ovr) => {
-  if (ovr >= 85) return '#16a34a';
-  if (ovr >= 78) return '#0284c7';
-  if (ovr >= 70) return '#d97706';
-  return '#64748b';
+// Map any stored position code to a broad group for the accent color only.
+const positionGroup = (pos = '') => {
+  const p = pos.toUpperCase();
+  if (p === 'GK') return 'GK';
+  if (['CB', 'LB', 'RB', 'LWB', 'RWB', 'DEF', 'DF'].includes(p)) return 'DEF';
+  if (['CM', 'CDM', 'CAM', 'LM', 'RM', 'MID', 'MF'].includes(p)) return 'MID';
+  if (['ST', 'CF', 'LW', 'RW', 'FWD', 'FW'].includes(p)) return 'FWD';
+  return 'MID';
 };
 
-// Clean, professional player roster card.
-// Props: player { id, firstName, lastName, position, jerseyNumber, photoUrl, clubLogoUrl }
+// Clean, professional player roster card — real club data only.
+// Props: player { id, firstName, lastName, position, jerseyNumber, photoUrl,
+//                 clubLogoUrl, teamName, ageGroup, contract, contractRenewals }
 export default function PlayerCard({ player, onClick, width = 200 }) {
-  const { overall, position, attrs } = getPlayerCard(player);
-  const accent = POS_COLORS[position] || '#6366f1';
-  const ring = ratingColor(overall);
+  const accent = POS_COLORS[positionGroup(player.position)] || '#6366f1';
   const fullName = `${player.firstName || ''} ${player.lastName || ''}`.trim();
   const ageGroup = ageGroupShort(player.ageGroup);
   const contractText = contractLabel(player.contract);
   const contractC = contractColor(player.contract);
   const renewals = player.contractRenewals || 0;
-
-  const bars = [
-    ['PAC', attrs.pac],
-    ['SHO', attrs.sho],
-    ['PAS', attrs.pas],
-    ['DRI', attrs.dri],
-    ['DEF', attrs.def],
-    ['PHY', attrs.phy],
-  ];
 
   return (
     <Box
@@ -65,7 +58,7 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
           : undefined,
       }}
     >
-      {/* Header band with accent + crest + rating */}
+      {/* Header band with accent + crest + jersey number */}
       <Box
         sx={{
           position: 'relative',
@@ -89,27 +82,29 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
             }}
           />
         )}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            minWidth: 30,
-            height: 30,
-            px: 0.5,
-            borderRadius: 1.5,
-            bgcolor: '#fff',
-            color: ring,
-            fontWeight: 800,
-            fontSize: 15,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-          }}
-        >
-          {overall}
-        </Box>
+        {player.jerseyNumber != null && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              minWidth: 30,
+              height: 30,
+              px: 0.5,
+              borderRadius: 1.5,
+              bgcolor: '#fff',
+              color: accent,
+              fontWeight: 800,
+              fontSize: 15,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            }}
+          >
+            {player.jerseyNumber}
+          </Box>
+        )}
       </Box>
 
       {/* Avatar overlapping the band */}
@@ -144,7 +139,7 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
       </Box>
 
       {/* Name + meta */}
-      <Box sx={{ textAlign: 'center', px: 1.5, pt: 1 }}>
+      <Box sx={{ textAlign: 'center', px: 1.5, pt: 1, pb: 2 }}>
         <Box
           sx={{
             display: 'flex',
@@ -179,6 +174,7 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
           <Box
             component="span"
+            title={positionLabel(player.position)}
             sx={{
               px: 1,
               py: 0.2,
@@ -190,11 +186,11 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
               letterSpacing: 0.5,
             }}
           >
-            {position}
+            {player.position || 'N/A'}
           </Box>
-          {player.jerseyNumber != null && (
-            <Typography variant="caption" color="text.secondary" fontWeight={600}>
-              #{player.jerseyNumber}
+          {player.teamName && (
+            <Typography variant="caption" color="text.secondary" fontWeight={600} noWrap>
+              {player.teamName}
             </Typography>
           )}
         </Box>
@@ -205,7 +201,7 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 0.5,
-            mt: 0.6,
+            mt: 0.8,
             px: 0.9,
             py: 0.25,
             borderRadius: 1,
@@ -229,48 +225,6 @@ export default function PlayerCard({ player, onClick, width = 200 }) {
             </Box>
           )}
         </Box>
-      </Box>
-
-      {/* Attribute mini-bars */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          columnGap: 1.5,
-          rowGap: 0.6,
-          px: 1.5,
-          py: 1.5,
-          mt: 0.5,
-        }}
-      >
-        {bars.map(([label, value]) => (
-          <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: 'text.secondary', width: 24 }}>
-              {label}
-            </Typography>
-            <Box
-              sx={{
-                flex: 1,
-                height: 4,
-                borderRadius: 2,
-                bgcolor: 'rgba(100,116,139,0.18)',
-                overflow: 'hidden',
-              }}
-            >
-              <Box
-                sx={{
-                  width: `${value}%`,
-                  height: '100%',
-                  borderRadius: 2,
-                  bgcolor: value >= 80 ? '#16a34a' : value >= 65 ? accent : '#94a3b8',
-                }}
-              />
-            </Box>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, width: 16, textAlign: 'right' }}>
-              {value}
-            </Typography>
-          </Box>
-        ))}
       </Box>
     </Box>
   );

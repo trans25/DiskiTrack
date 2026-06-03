@@ -48,7 +48,7 @@ export default function Players() {
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState('cards');
+  const [view, setView] = useState('list');
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState('ALL');
   const [form, setForm] = useState({

@@ -27,12 +27,23 @@ const SELECT_WITH_PLAYER = `
 /** Map an event type to the player_stats column it increments (if any). */
 const STAT_COLUMN = {
   GOAL: 'goals',
+  PENALTY_GOAL: 'goals',
   ASSIST: 'assists',
   SHOT: 'shots',
+  SHOT_ON_TARGET: 'shots_on_target',
+  SAVE: 'saves',
+  TACKLE: 'tackles',
+  INTERCEPTION: 'interceptions',
+  OFFSIDE: 'offsides',
+  OWN_GOAL: 'own_goals',
   FOUL: 'fouls',
   YELLOW_CARD: 'yellow_cards',
   RED_CARD: 'red_cards',
 };
+
+// Event types that put the ball in the net. A SHOT_ON_TARGET also counts as a
+// shot attempt, so we mirror it into the shots column too.
+const SCORING_EVENTS = new Set(['GOAL', 'PENALTY_GOAL', 'OWN_GOAL']);
 
 export const listMatchEvents = asyncHandler(async (req, res) => {
   const { rows } = await query(
@@ -91,10 +102,16 @@ export const createMatchEvent = asyncHandler(async (req, res) => {
       ]
     );
 
-    // 3. Scoreboard update on goals.
+    // 3. Scoreboard update on goals (incl. penalties and own goals).
+    //    An OWN_GOAL is logged against the conceding player's team but the
+    //    goal counts for the OPPONENT, so we flip the scoring side.
     let updatedMatch = match;
-    if (eventType === 'GOAL') {
-      const column = teamId === match.home_team_id ? 'home_score' : 'away_score';
+    if (SCORING_EVENTS.has(eventType)) {
+      const scoringTeamIsHome =
+        eventType === 'OWN_GOAL'
+          ? teamId !== match.home_team_id
+          : teamId === match.home_team_id;
+      const column = scoringTeamIsHome ? 'home_score' : 'away_score';
       const scoreRes = await client.query(
         `UPDATE matches SET ${column} = ${column} + 1
           WHERE id = $1 RETURNING *`,
@@ -114,8 +131,18 @@ export const createMatchEvent = asyncHandler(async (req, res) => {
         [req.tenantId, matchId, playerId]
       );
     }
+    // A shot on target also counts as a shot attempt.
+    if (eventType === 'SHOT_ON_TARGET' && playerId) {
+      await client.query(
+        `INSERT INTO player_stats (tenant_id, match_id, player_id, shots)
+         VALUES ($1, $2, $3, 1)
+         ON CONFLICT (match_id, player_id)
+         DO UPDATE SET shots = player_stats.shots + 1`,
+        [req.tenantId, matchId, playerId]
+      );
+    }
     // A goal's assisting player also gets credited.
-    if (eventType === 'GOAL' && relatedPlayerId) {
+    if ((eventType === 'GOAL' || eventType === 'PENALTY_GOAL') && relatedPlayerId) {
       await client.query(
         `INSERT INTO player_stats (tenant_id, match_id, player_id, assists)
          VALUES ($1, $2, $3, 1)

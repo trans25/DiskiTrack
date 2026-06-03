@@ -2,6 +2,48 @@ import { query } from '../db/pool.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { emitToMatch } from '../realtime/socket.js';
+import { notifyUser } from '../utils/notify.js';
+
+// Notify every player (and their guardians) in the internal team(s) of a new
+// fixture so they can open the portal and submit their availability. The team
+// ids passed here are only the club's own teams (external sides are skipped).
+const notifySquadOfFixture = async ({ tenantId, teamIds, fixture, kickoff }) => {
+  const internalTeamIds = teamIds.filter(Boolean);
+  if (internalTeamIds.length === 0) return;
+
+  // Player user accounts plus any linked guardian user accounts for the squad.
+  const { rows } = await query(
+    `SELECT DISTINCT u.id AS user_id
+       FROM players p
+       JOIN users u ON u.id = p.user_id
+      WHERE p.tenant_id = $1 AND p.is_active = TRUE AND p.team_id = ANY($2::uuid[])
+      UNION
+     SELECT DISTINCT gu.id AS user_id
+       FROM players p
+       JOIN guardian_players gp ON gp.player_id = p.id
+       JOIN guardians g ON g.id = gp.guardian_id
+       JOIN users gu ON gu.id = g.user_id
+      WHERE p.tenant_id = $1 AND p.is_active = TRUE AND p.team_id = ANY($2::uuid[])`,
+    [tenantId, internalTeamIds]
+  );
+
+  const body = kickoff
+    ? `${fixture} — ${new Date(kickoff).toLocaleString()}. Tap to set your availability.`
+    : `${fixture}. Tap to set your availability.`;
+
+  await Promise.all(
+    rows.map((r) =>
+      notifyUser({
+        userId: r.user_id,
+        tenantId,
+        type: 'INFO',
+        title: 'New fixture — set your availability',
+        body,
+        link: '/dashboard',
+      })
+    )
+  );
+};
 
 const toMatch = (r) => ({
   id: r.id,
@@ -103,7 +145,17 @@ export const createMatch = asyncHandler(async (req, res) => {
     `${SELECT_WITH_TEAMS} WHERE m.id = $1`,
     [rows[0].id]
   );
-  res.status(201).json(toMatch(full[0]));
+  const match = full[0];
+
+  // Alert the squad (players + guardians) of upcoming fixtures so they can RSVP.
+  await notifySquadOfFixture({
+    tenantId: req.tenantId,
+    teamIds: [match.home_team_id, match.away_team_id],
+    fixture: `${match.home_team_name} vs ${match.away_team_name}`,
+    kickoff: match.scheduled_at,
+  });
+
+  res.status(201).json(toMatch(match));
 });
 
 // Transition match status; LIVE sets kickoff, FINISHED stamps finished_at.

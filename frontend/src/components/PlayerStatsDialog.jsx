@@ -158,8 +158,15 @@ export default function PlayerStatsDialog({ playerId, open, onClose }) {
               <StatTile label="Goals" value={totals.goals} color={ACCENT} />
               <StatTile label="Assists" value={totals.assists} color={PRIMARY} />
               <StatTile label="Shots" value={totals.shots} />
+              <StatTile label="On Target" value={totals.shots_on_target} color={ACCENT} />
               <StatTile label="Minutes" value={totals.minutes_played} />
               <StatTile label="Shot Conv. %" value={data.shotConversion} color={ACCENT} />
+              <StatTile label="Shot Acc. %" value={data.shotAccuracy} color={PRIMARY} />
+              <StatTile label="Tackles" value={totals.tackles} />
+              <StatTile label="Interceptions" value={totals.interceptions} />
+              <StatTile label="Saves" value={totals.saves} color={PRIMARY} />
+              <StatTile label="Offsides" value={totals.offsides} color={WARN} />
+              <StatTile label="Own Goals" value={totals.own_goals} color={DANGER} />
               <StatTile label="Yellow Cards" value={totals.yellow_cards} color={WARN} />
               <StatTile label="Red Cards" value={totals.red_cards} color={DANGER} />
             </Grid>

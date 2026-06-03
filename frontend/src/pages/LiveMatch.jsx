@@ -29,6 +29,10 @@ import StyleIcon from '@mui/icons-material/Style';
 import SportsIcon from '@mui/icons-material/Sports';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import FlagIcon from '@mui/icons-material/Flag';
+import GpsFixedIcon from '@mui/icons-material/GpsFixed';
+import PanToolIcon from '@mui/icons-material/PanTool';
+import ShieldIcon from '@mui/icons-material/Shield';
+import BlockIcon from '@mui/icons-material/Block';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import { api } from '../api/client.js';
@@ -49,8 +53,15 @@ const fmtClock = (s) => {
 // Big, touch-friendly event buttons for a coach on the field.
 const EVENT_BUTTONS = [
   { type: 'GOAL', label: 'Goal', icon: <SportsSoccerIcon />, color: 'primary' },
-  { type: 'SHOT', label: 'Shot', icon: <SportsSoccerIcon />, color: 'inherit' },
+  { type: 'PENALTY_GOAL', label: 'Penalty', icon: <SportsSoccerIcon />, color: 'primary' },
+  { type: 'OWN_GOAL', label: 'Own Goal', icon: <BlockIcon />, color: 'error' },
   { type: 'ASSIST', label: 'Assist', icon: <SwapHorizIcon />, color: 'inherit' },
+  { type: 'SHOT', label: 'Shot', icon: <SportsSoccerIcon />, color: 'inherit' },
+  { type: 'SHOT_ON_TARGET', label: 'On Target', icon: <GpsFixedIcon />, color: 'inherit' },
+  { type: 'SAVE', label: 'Save', icon: <PanToolIcon />, color: 'inherit' },
+  { type: 'TACKLE', label: 'Tackle', icon: <ShieldIcon />, color: 'inherit' },
+  { type: 'INTERCEPTION', label: 'Intercept', icon: <ShieldIcon />, color: 'inherit' },
+  { type: 'OFFSIDE', label: 'Offside', icon: <FlagIcon />, color: 'inherit' },
   { type: 'FOUL', label: 'Foul', icon: <SportsIcon />, color: 'inherit' },
   { type: 'CORNER', label: 'Corner', icon: <FlagIcon />, color: 'inherit' },
   { type: 'YELLOW_CARD', label: 'Yellow', icon: <StyleIcon />, color: 'warning' },
@@ -420,7 +431,7 @@ export default function LiveMatch() {
                     <ListItemText
                       primary={
                         <Stack direction="row" spacing={1} alignItems="center">
-                          <Chip label={e.eventType.replace('_', ' ')} size="small" color="primary" />
+                          <Chip label={e.eventType.replace(/_/g, ' ')} size="small" color="primary" />
                           <Typography variant="body2">
                             {e.minute != null ? `${e.minute}'` : ''} {e.playerName || ''}
                           </Typography>
@@ -446,7 +457,7 @@ export default function LiveMatch() {
       {/* Player selection modal */}
       <Dialog open={pickerOpen} onClose={() => setPickerOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>
-          Select player — {pendingType?.replace('_', ' ')}
+          Select player — {pendingType?.replace(/_/g, ' ')}
         </DialogTitle>
         <DialogContent dividers>
           <List>

@@ -12,6 +12,7 @@ import {
   deletePlayerDocument,
   getMyPlayer,
 } from '../controllers/player.controller.js';
+import { getMyAvailability } from '../controllers/availability.controller.js';
 import { authorize } from '../middleware/authorize.js';
 import { validateBody } from '../middleware/validate.js';
 import { enforcePlanLimit } from '../middleware/planLimit.js';
@@ -25,6 +26,9 @@ const router = Router();
 
 // Player self-service portal — the logged-in player's own record.
 router.get('/me', authorize('PLAYER'), getMyPlayer);
+
+// Upcoming fixtures + the player's own RSVP status (player or guardian).
+router.get('/me/availability', authorize('PLAYER', 'GUARDIAN'), getMyAvailability);
 
 router.get('/', listPlayers);
 router.get('/:id', getPlayer);

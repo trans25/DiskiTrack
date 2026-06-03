@@ -17,6 +17,7 @@ import StyleIcon from '@mui/icons-material/Style';
 import StadiumIcon from '@mui/icons-material/Stadium';
 import { api } from '../api/client.js';
 import PlayerCard from './PlayerCard.jsx';
+import MatchAvailability from './MatchAvailability.jsx';
 import { contractLabel, contractColor } from '../utils/football.js';
 
 const fmtDate = (d) =>
@@ -236,6 +237,11 @@ export default function PlayerHub({ player, matchesPath }) {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Match availability / RSVP for this player's upcoming fixtures. */}
+      <Box sx={{ mt: 2 }}>
+        <MatchAvailability playerId={player.id} />
+      </Box>
     </Box>
   );
 }

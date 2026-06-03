@@ -30,9 +30,11 @@ import ScoreboardIcon from '@mui/icons-material/Scoreboard';
 import EventIcon from '@mui/icons-material/Event';
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import SearchIcon from '@mui/icons-material/Search';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import LineupViewerDialog from '../components/LineupViewerDialog.jsx';
+import SquadAvailabilityDialog from '../components/SquadAvailabilityDialog.jsx';
 
 const statusColor = { SCHEDULED: 'default', LIVE: 'error', FINISHED: 'primary' };
 
@@ -78,6 +80,9 @@ export default function Matches() {
 
   // Read-only lineup viewer dialog.
   const [lineupMatch, setLineupMatch] = useState(null);
+
+  // Coach squad availability summary dialog.
+  const [availabilityMatch, setAvailabilityMatch] = useState(null);
 
   const load = () => api.get('/matches').then((res) => setMatches(res.data));
   useEffect(() => {
@@ -300,6 +305,16 @@ export default function Matches() {
                 onClick={() => setLineupMatch(m)}
               >
                 Lineup
+              </Button>
+            )}
+            {canManage && (!m.homeIsExternal || !m.awayIsExternal) && m.status !== 'FINISHED' && (
+              <Button
+                size="small"
+                variant="text"
+                startIcon={<HowToRegIcon />}
+                onClick={() => setAvailabilityMatch(m)}
+              >
+                Availability
               </Button>
             )}
             <Box sx={{ flex: 1 }} />
@@ -575,6 +590,13 @@ export default function Matches() {
         open={Boolean(lineupMatch)}
         match={lineupMatch}
         onClose={() => setLineupMatch(null)}
+      />
+
+      {/* Coach squad availability summary */}
+      <SquadAvailabilityDialog
+        open={Boolean(availabilityMatch)}
+        match={availabilityMatch}
+        onClose={() => setAvailabilityMatch(null)}
       />
     </Box>
   );
