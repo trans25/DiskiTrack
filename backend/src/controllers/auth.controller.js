@@ -125,6 +125,69 @@ export const login = asyncHandler(async (req, res) => {
   return res.json({ user: toPublicUser(user), ...tokens });
 });
 
+// Guest / demo sign-in for testing and portfolio walkthroughs.
+// Provisions (once) an APPROVED demo club and a CLUB_ADMIN user, then logs in
+// straight away — no System Admin approval required. This is intended for
+// testing/demo use only and can be disabled by setting ENABLE_GUEST_LOGIN=false.
+const GUEST_EMAIL = 'guest@diskitrack.demo';
+const GUEST_SLUG = 'demo-club';
+
+export const guestLogin = asyncHandler(async (req, res) => {
+  if (config.enableGuestLogin === false) {
+    throw ApiError.forbidden('Guest login is disabled.');
+  }
+
+  const user = await withTransaction(async (client) => {
+    // Reuse the existing guest user if it has already been provisioned.
+    const existing = await client.query(
+      `SELECT u.* FROM users u WHERE u.email = $1 LIMIT 1`,
+      [GUEST_EMAIL]
+    );
+    if (existing.rows[0]) return existing.rows[0];
+
+    // Ensure the demo club exists and is APPROVED so login gates pass.
+    let clubRes = await client.query(
+      `SELECT * FROM clubs WHERE slug = $1 LIMIT 1`,
+      [GUEST_SLUG]
+    );
+    let club = clubRes.rows[0];
+    if (!club) {
+      clubRes = await client.query(
+        `INSERT INTO clubs (name, slug, country, city, status, is_active, contact_email)
+         VALUES ($1, $2, $3, $4, 'APPROVED', TRUE, $5)
+         RETURNING *`,
+        ['Demo Club', GUEST_SLUG, 'South Africa', 'Johannesburg', GUEST_EMAIL]
+      );
+      club = clubRes.rows[0];
+    }
+
+    // Create the guest CLUB_ADMIN user for that club.
+    const passwordHash = await bcrypt.hash('guest-demo-no-login', 12);
+    const userRes = await client.query(
+      `INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role, is_active)
+       VALUES ($1, $2, $3, $4, $5, 'CLUB_ADMIN', TRUE)
+       RETURNING *`,
+      [club.id, GUEST_EMAIL, passwordHash, 'Guest', 'Admin']
+    );
+    return userRes.rows[0];
+  });
+
+  await query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [user.id]);
+
+  recordAudit({
+    action: 'LOGIN_SUCCESS',
+    entityType: 'user',
+    entityId: user.id,
+    summary: `Guest demo sign-in (${user.email})`,
+    tenantId: user.tenant_id,
+    actor: { id: user.id, email: user.email, role: user.role, tenantId: user.tenant_id },
+    req,
+  });
+
+  const tokens = issueTokens(user);
+  return res.json({ user: toPublicUser(user), ...tokens });
+});
+
 // Guardian quick sign-in by child's ID number.
 // number of one of their registered children; we validate it against the club
 // database. If a matching player with a linked guardian account exists, we log

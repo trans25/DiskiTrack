@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { Button, TextField, Alert, Stack, Link, Typography, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Button, TextField, Alert, Stack, Link, Typography, ToggleButton, ToggleButtonGroup, Divider } from '@mui/material';
 import { useAuth } from '../context/AuthContext.jsx';
 import AuthLayout from '../components/AuthLayout.jsx';
 
 export default function Login() {
-  const { login, guardianLogin } = useAuth();
+  const { login, guardianLogin, guestLogin } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState('user');
   const [email, setEmail] = useState('');
@@ -27,6 +27,19 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await guestLogin();
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Guest login failed');
     } finally {
       setLoading(false);
     }
@@ -102,6 +115,21 @@ export default function Login() {
           </Stack>
         )}
       </form>
+
+      <Divider sx={{ my: 2 }}>or</Divider>
+
+      <Button
+        variant="outlined"
+        size="large"
+        fullWidth
+        disabled={loading}
+        onClick={handleGuestLogin}
+      >
+        Continue as Guest (Demo)
+      </Button>
+      <Typography variant="caption" display="block" textAlign="center" color="text.secondary" sx={{ mt: 1 }}>
+        Explore the platform with full Club Admin access — no approval needed.
+      </Typography>
 
       <Typography variant="body2" textAlign="center" color="text.secondary" sx={{ mt: 3 }}>
         New club?{' '}

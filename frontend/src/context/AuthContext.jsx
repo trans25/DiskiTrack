@@ -47,6 +47,17 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
+  // Guest / demo sign-in: provisions an approved demo club + Club Admin on the
+  // backend and logs straight in, no System Admin approval needed. Testing only.
+  const guestLogin = async () => {
+    const { data } = await api.post('/auth/guest-login');
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    setUser(data.user);
+    connectSocket();
+    return data.user;
+  };
+
   // Shared by registration and reset/invite flows: persist tokens + set user.
   const applySession = (data) => {
     localStorage.setItem('accessToken', data.accessToken);
@@ -89,6 +100,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       login,
       guardianLogin,
+      guestLogin,
       register,
       forgotPassword,
       resetPassword,

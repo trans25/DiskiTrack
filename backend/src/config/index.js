@@ -32,6 +32,9 @@ export const config = {
   // Public URL of the frontend, used to build links inside emails (reset /
   // invite). Falls back to the CORS client origin.
   appUrl: process.env.APP_URL || process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  // Guest / demo login. Enabled by default for testing/portfolio demos; set
+  // ENABLE_GUEST_LOGIN=false to disable in a locked-down environment.
+  enableGuestLogin: process.env.ENABLE_GUEST_LOGIN !== 'false',
   // SMTP / email. When host is unset, emails are logged to the console so the
   // full flow still works locally without a mail server.
   smtp: {

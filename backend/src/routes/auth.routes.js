@@ -8,6 +8,7 @@ import {
   resetPassword,
   verifyToken,
   guardianIdLogin,
+  guestLogin,
 } from '../controllers/auth.controller.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { validateBody } from '../middleware/validate.js';
@@ -23,6 +24,7 @@ const router = Router();
 
 router.post('/login', validateBody(loginSchema), login);
 router.post('/guardian-login', validateBody(guardianLoginSchema), guardianIdLogin);
+router.post('/guest-login', guestLogin);
 router.post('/register', validateBody(registerClubSchema), registerClub);
 router.post('/refresh', refresh);
 router.post('/forgot-password', validateBody(forgotPasswordSchema), forgotPassword);
